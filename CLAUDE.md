@@ -1,9 +1,16 @@
-# FRAY — project guide for Claude
+# FRAY — project guide for Claude Code
 
 Original browser fighting game: Smash-style Platform mode (1–4 players) + Street Fighter / Dragon Ball-style
 Versus mode (1v1). Everything (names, characters, designs) must be original.
 
-Read NOTES.md first for current status / next steps. Keep both files updated. Commit + push after every working step.
+Read NOTES.md first for current status / next steps. Commit + push after every working step.
+
+## Agent rules (shared by Claude Code and OpenAI Codex)
+- CLAUDE.md (Claude Code) and AGENTS.md (OpenAI Codex) hold the SAME rules. Everything after the first line must be
+  identical — `tests/agents.test.ts` fails if they drift. When you change one, change the other in the same commit.
+- Both agents log their work in NOTES.md (what's done, what's next, with the agent name + date on each log entry), so any
+  session can "continue from NOTES.md". Update it before stopping; work in small steps (usage limits).
+- Don't stop to ask the user questions: make sensible calls and record them here under the relevant section.
 
 ## Stack & commands
 - Vite + TypeScript + three.js; Vitest (unit, `tests/`), Playwright (browser smoke, `e2e/`).

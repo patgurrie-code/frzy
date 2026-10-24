@@ -1,5 +1,11 @@
 # NOTES — status & next steps
 
+Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under "Log".
+
+## Log
+- 2026-10-24 (Claude Code): sim core, fighters, rules, tests; AGENTS.md added (kept in sync with CLAUDE.md by a test).
+  GitHub push returned 403 (Claude GitHub App lacks access to the repo) — commits are local until access is fixed.
+
 ## Done
 - Repo setup: Vite + TS + three + Vitest + Playwright, render.yaml.
 - Deterministic sim (`src/sim/`): fixed-point maths, LUT trig, PRNG, input bitmasks, save/load/checksum.
