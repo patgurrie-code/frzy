@@ -368,7 +368,7 @@ moves[Mv.Super] = mb.move(
       r: 0.7,
       life: 70,
       maxLen: 26,
-      dmg: 4,
+      dmg: 5,
       bkb: 45,
       kbg: 60,
       angle: 32,

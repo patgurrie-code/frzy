@@ -208,7 +208,7 @@ export class GameRenderer {
       for (const wx of [st.wallL, st.wallR]) {
         const wall = new THREE.Mesh(
           new THREE.PlaneGeometry(4, 12),
-          new THREE.MeshBasicMaterial({ color: st.accent, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false }),
+          new THREE.MeshBasicMaterial({ color: st.accent, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false }),
         );
         wall.rotation.y = Math.PI / 2;
         wall.position.set(toM(wx), 6, 0);

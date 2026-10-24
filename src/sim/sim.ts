@@ -1680,7 +1680,9 @@ function dealDamage(s: GameState, a: FighterState, v: FighterState, dmg: number,
   let dealt = dmg;
   if (s.mode === Mode.Versus) {
     // Combo scaling: each hit in a combo does 10% less (min 30%).
-    const scale = Math.max(30, 100 - v.combo * 10);
+    // Supers keep at least 75% damage so they're always worth the meter.
+    const minScale = a.act === Act.Attack && a.move === Mv.Super ? 75 : 30;
+    const scale = Math.max(minScale, 100 - v.combo * 10);
     dealt = Math.max(1, Math.trunc((dmg * VS_DMG_SCALE * scale) / 100));
     v.health = Math.max(0, v.health - dealt);
   } else {

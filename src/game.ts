@@ -119,6 +119,7 @@ export class Match {
   private tick(): void {
     this.prev = saveState(this.state);
     step(this.state, this.gatherInputs());
+    this.input.endFrame();
     const ev = this.state.events;
     if (ev.length) {
       this.renderer.onEvents(ev);

@@ -81,6 +81,8 @@ export type DeviceId = string;
 
 export class InputManager {
   readonly down = new Set<string>();
+  /** Keys pressed since the last sim frame: counted as held for one frame so very short taps aren't lost. */
+  private latched = new Set<string>();
   keySets: KeySet[] = loadKeySets();
   /** Called for every keydown (used by the key-test and remap screens). */
   onKey: ((code: string, down: boolean) => void) | null = null;
@@ -89,6 +91,7 @@ export class InputManager {
     target.addEventListener('keydown', (e) => {
       if (isGameKey(e.code, this.keySets) || e.code.startsWith('F') && /^F\d+$/.test(e.code)) e.preventDefault();
       this.down.add(e.code);
+      this.latched.add(e.code);
       this.onKey?.(e.code, true);
     });
     target.addEventListener('keyup', (e) => {
@@ -102,8 +105,13 @@ export class InputManager {
     const ks = this.keySets[set];
     if (!ks) return 0;
     let m = 0;
-    for (const a of ACTIONS) for (const code of ks[a]) if (this.down.has(code)) m |= ACTION_BITS[a];
+    for (const a of ACTIONS) for (const code of ks[a]) if (this.down.has(code) || this.latched.has(code)) m |= ACTION_BITS[a];
     return m;
+  }
+
+  /** Call once after inputs for a sim frame have been gathered. */
+  endFrame(): void {
+    this.latched.clear();
   }
 
   gamepadMask(index: number): number {
