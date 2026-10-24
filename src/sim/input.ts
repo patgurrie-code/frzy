@@ -9,8 +9,10 @@ export const IN_SPECIAL = 1 << 5;
 export const IN_JUMP = 1 << 6;
 export const IN_GUARD = 1 << 7;
 export const IN_GRAB = 1 << 8;
+/** Dedicated smash-attack button (direction + Smash = smash attack; also used for EX specials). */
+export const IN_SMASH = 1 << 9;
 
-export const IN_ALL = (1 << 9) - 1;
+export const IN_ALL = (1 << 10) - 1;
 
 export const INPUT_NAMES: Record<number, string> = {
   [IN_LEFT]: 'Left',
@@ -22,6 +24,7 @@ export const INPUT_NAMES: Record<number, string> = {
   [IN_JUMP]: 'Jump',
   [IN_GUARD]: 'Guard',
   [IN_GRAB]: 'Grab',
+  [IN_SMASH]: 'Smash',
 };
 
 /** Length of the per-fighter input history ring kept in state (for taps, buffers, mashing). */

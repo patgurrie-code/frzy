@@ -14,7 +14,7 @@ export interface AnimRef {
 const MOVE_CLIP_NAMES = [
   'Jab', 'FTilt', 'UTilt', 'DTilt', 'FSmash', 'USmash', 'DSmash', 'NAir', 'FAir', 'BAir', 'UAir', 'DAir',
   'NSpec', 'SSpec', 'USpec', 'DSpec', 'NSpecEx', 'SSpecEx', 'USpecEx', 'DSpecEx', 'Grab', 'Pummel',
-  'FThrow', 'BThrow', 'UThrow', 'DThrow', 'Super', 'DashAttack', 'LedgeAttack',
+  'FThrow', 'BThrow', 'UThrow', 'DThrow', 'Super', 'DashAttack', 'LedgeAttack', 'Jab2', 'Jab3', 'CmdThrow',
 ];
 
 export function moveClipName(move: number): string {
@@ -127,6 +127,10 @@ export function fighterAnim(f: FighterState, d: FighterDef, out: AnimRef): AnimR
     case Act.Victory:
       anim = a.victory;
       clip = 'victory';
+      break;
+    case Act.KiCharge:
+      anim = a.charge;
+      clip = 'charge';
       break;
   }
   out.anim = anim;

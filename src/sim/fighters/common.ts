@@ -250,6 +250,15 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean): FighterAnims {
       40,
       true,
     ),
+    charge: mb.anim(
+      [
+        { f: 0, r: { Spine: 8, Head: -10, RightArm: 30, LeftArm: 30, RightForeArm: 70, LeftForeArm: 70, RightHand: 0, RightUpLeg: 30, RightLeg: -45, LeftUpLeg: -25, LeftLeg: -30 }, root: [0, -0.1] },
+        { f: 10, r: { Spine: 12, Head: -16, RightArm: 25, LeftArm: 25 }, root: [0, -0.12] },
+        { f: 20, r: { Spine: 8, Head: -10, RightArm: 30, LeftArm: 30 }, root: [0, -0.1] },
+      ],
+      20,
+      true,
+    ),
     beam: mb.anim([{ f: 0, r: { Spine: -10, RightArm: 90, RightForeArm: 0, LeftArm: 90, LeftForeArm: 0, RightHand: 90, LeftHand: 90, RightUpLeg: 40, RightLeg: -50, LeftUpLeg: -30, LeftLeg: -10 }, root: [0, -0.1] }], 1),
   };
 }

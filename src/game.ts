@@ -1,5 +1,6 @@
 // Match controller: fixed 60 Hz sim stepping, input collection, rendering, HUD, audio, training tools.
-import { createGame, step, MatchConfig } from './sim/sim';
+import { createGame, step, MatchConfig, FighterMods } from './sim/sim';
+import type { FighterLook } from './sim/defs';
 import { GameState, Mode, Phase, saveState, checksum } from './sim/state';
 import { GameRenderer } from './render/renderer';
 import { Hud } from './ui/hud';
@@ -14,6 +15,12 @@ export interface PlayerSetup {
   cpuLevel: number;
   char: number;
   label: string;
+  /** Display-name override (story bosses, e.g. "HOLLOW REN"). Render/HUD only. */
+  name?: string;
+  /** Colour/style override on the placeholder model. Render only. */
+  look?: Partial<FighterLook>;
+  /** Gameplay modifiers (go into the sim, deterministic). */
+  mods?: FighterMods;
 }
 
 export interface MatchSetup {
@@ -23,6 +30,11 @@ export interface MatchSetup {
   players: PlayerSetup[];
   /** Attract mode: no HUD, no sound. */
   quiet?: boolean;
+  /** Versus: rounds to win (default 2) and seconds per round (default 99, 0 = untimed). */
+  roundsToWin?: number;
+  timeLimit?: number;
+  /** Story: freeze CPU inputs (backdrop scenes) */
+  idle?: boolean;
 }
 
 export class Match {
@@ -56,12 +68,15 @@ export class Match {
       stocks: setup.stocks,
       seed: (Date.now() & 0x7fffffff) >>> 0,
       training: setup.training,
+      roundsToWin: setup.roundsToWin,
+      timeLimit: setup.timeLimit,
+      mods: setup.players.map((p) => p.mods),
     };
     this.state = createGame(cfg);
     this.prev = saveState(this.state);
     this.cpuMem = setup.players.map(() => newCpuMemory());
-    renderer.setup(this.state);
-    if (!setup.quiet) hud.setup(this.state, setup.players.map((p) => p.label));
+    renderer.setup(this.state, setup.players.map((p) => p.look));
+    if (!setup.quiet) hud.setup(this.state, setup.players.map((p) => p.label), setup.players.map((p) => p.name), setup.players.map((p) => p.look));
     window.addEventListener('keydown', this.onKey);
     if (!setup.quiet) (window as unknown as { __fray: unknown }).__fray = this;
   }
@@ -111,6 +126,7 @@ export class Match {
   }
 
   private gatherInputs(): number[] {
+    if (this.setup.idle) return this.setup.players.map(() => 0);
     return this.setup.players.map((p, i) =>
       p.device === 'cpu' ? cpuInput(this.state, i, p.cpuLevel, this.cpuMem[i]) : this.input.maskFor(p.device),
     );

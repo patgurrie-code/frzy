@@ -4,7 +4,7 @@ import { FX } from '../sim/fixed';
 import { FIGHTERS } from '../sim/fighters';
 import { STAGES, StageDef } from '../sim/stage';
 import { Act, EvType, GameState, Mode, SimEvent } from '../sim/state';
-import { ProjKind } from '../sim/defs';
+import { ProjKind, FighterLook } from '../sim/defs';
 import { AnimRef, fighterAnim } from '../sim/pose';
 import { samplePoseF } from '../sim/anim';
 import { fighterJoints } from '../sim/sim';
@@ -107,13 +107,14 @@ export class GameRenderer {
   }
 
   /** (Re)build the scene for a match. */
-  setup(s: GameState): void {
+  setup(s: GameState, looks: (Partial<FighterLook> | undefined)[] = []): void {
     for (const m of this.models) {
       this.scene.remove(m.root);
       this.scene.remove(m.shadow);
     }
     this.models = s.fighters.map((f) => {
-      const def = FIGHTERS[f.char];
+      const base = FIGHTERS[f.char];
+      const def = looks[f.port] ? { ...base, look: { ...base.look, ...looks[f.port] } } : base;
       const m = buildFighterModel(def);
       this.scene.add(m.root);
       this.scene.add(m.shadow);
@@ -300,8 +301,10 @@ export class GameRenderer {
 
       // Invulnerability flicker, aura, shield
       const blink = f.invuln > 0 && f.act !== Act.LedgeHang && Math.floor(this.time * 20) % 2 === 0;
-      model.body.visible = !blink || f.act === Act.Respawn;
-      const auraOn = f.ex > 0 || (f.act === Act.Attack && f.charge > 0) || (cur.freeze > 0 && cur.freezeOwner === f.port);
+      const mvDef = f.act === Act.Attack && f.move >= 0 ? def.moves[f.move] : undefined;
+      const vanished = !!mvDef?.vanish && f.actFrame >= mvDef.vanish[0] && f.actFrame <= mvDef.vanish[1];
+      model.body.visible = (!blink || f.act === Act.Respawn) && !vanished;
+      const auraOn = f.ex > 0 || f.act === Act.KiCharge || (f.act === Act.Attack && f.charge > 0) || (cur.freeze > 0 && cur.freezeOwner === f.port);
       const ma = model.auraMat;
       ma.opacity = lerp(ma.opacity, auraOn ? 0.28 + Math.sin(this.time * 30) * 0.08 : f.ki >= 300 ? 0.08 : 0, 0.3);
       model.aura.visible = ma.opacity > 0.01;

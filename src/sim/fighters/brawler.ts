@@ -41,7 +41,33 @@ moves[Mv.Jab] = mb.move(
     { f: 12, r: { RightArm: 55, RightForeArm: 100, Spine: -8 } },
   ],
   [hb(3, 5, { bone: R, at: FIST, r: 0.13, dmg: 3, bkb: 18, kbg: 40, angle: 361, hitstun: 14 })],
-  { iasa: 12 },
+  { iasa: 12, chain: { from: 6, next: Mv.Jab2 } },
+);
+
+moves[Mv.Jab2] = mb.move(
+  'Cross',
+  20,
+  [
+    { f: 0, r: { RightArm: 70, RightForeArm: 60 } },
+    { f: 3, r: { LeftArm: 90, LeftForeArm: 5, Spine: -18 }, root: [0.05, -0.04] },
+    { f: 7, r: { LeftArm: 88 } },
+    { f: 14 },
+  ],
+  [hb(3, 5, { bone: L, at: FIST, r: 0.14, dmg: 3, bkb: 20, kbg: 40, angle: 361, hitstun: 16 })],
+  { iasa: 14, chain: { from: 7, next: Mv.Jab3 } },
+);
+
+moves[Mv.Jab3] = mb.move(
+  'Spinning Heel',
+  32,
+  [
+    { f: 0, r: { Hips: 0, RightUpLeg: 70, RightLeg: -100 } },
+    { f: 4, r: { Hips: -90, RightUpLeg: 95, RightLeg: -10, Spine: 10 } },
+    { f: 8, r: { Hips: -180, RightUpLeg: 92, RightLeg: -5 } },
+    { f: 14, r: { Hips: -360, RightUpLeg: 30, RightLeg: -30 } },
+    { f: 24, r: { Hips: 0 } },
+  ],
+  [hb(6, 9, { bone: RF, at: TOE, r: 0.2, dmg: 6, bkb: 50, kbg: 70, angle: 40, hitstun: 26 })],
 );
 
 moves[Mv.FTilt] = mb.move(
@@ -262,7 +288,7 @@ moves[Mv.DSpec] = mb.move(
   ],
   // Simple version: brief intangible parry window followed by a palm strike.
   [hb(33, 36, { bone: R, at: FIST, r: 0.24, dmg: 11, bkb: 50, kbg: 75, angle: 40 })],
-  { invuln: [4, 22] },
+  { counter: { from: 4, to: 24, jump: 31 } },
 );
 
 // EX specials (1 ki bar)
@@ -294,7 +320,7 @@ moves[Mv.USpecEx] = makeEx(moves[Mv.USpec], 'Rising Comet EX', {
   motion: [mv(4, 0.05, 0.44), mv(20, 0.04, 0.06)],
   invuln: [1, 10],
 });
-moves[Mv.DSpecEx] = makeEx(moves[Mv.DSpec], 'Counter Stance EX', { invuln: [2, 30] });
+moves[Mv.DSpecEx] = makeEx(moves[Mv.DSpec], 'Counter Stance EX', { counter: { from: 2, to: 30, jump: 31 }, armor: undefined });
 
 // Grab & throws
 moves[Mv.Grab] = mb.move(
@@ -394,6 +420,8 @@ moves[Mv.LedgeAttack] = mb.move(
   [hb(9, 12, { bone: RF, at: TOE, r: 0.2, dmg: 8, bkb: 50, kbg: 40, angle: 40 })],
   { invuln: [1, 10] },
 );
+
+moves[Mv.CmdThrow] = moves[Mv.FThrow];
 
 export const KESTREL: FighterDef = {
   id: 'kestrel',

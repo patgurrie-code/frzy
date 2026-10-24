@@ -72,9 +72,9 @@ test('keyboard player moves and training frame-step works', async ({ page }) => 
   await expect.poll(() => frame(page)).toBe(f + 2);
   await page.keyboard.press('F3');
   await page.keyboard.press('F1');
-  await page.keyboard.down('KeyF');
+  await page.keyboard.down('KeyJ');
   await page.waitForTimeout(100);
-  await page.keyboard.up('KeyF');
+  await page.keyboard.up('KeyJ');
   await page.waitForTimeout(500);
   expect(await frame(page)).toBeGreaterThan(f + 10);
   expect(errors).toEqual([]);
@@ -85,8 +85,25 @@ test('key test screen shows registered keys', async ({ page }) => {
   await boot(page, errors);
   await page.click('[data-m=settings]');
   await page.click('[data-t=keytest]');
-  await page.keyboard.down('KeyF');
+  await page.keyboard.down('KeyJ');
   await expect(page.locator('.kt-row').first().locator('i.on')).toHaveText('Attack');
-  await page.keyboard.up('KeyF');
+  await page.keyboard.up('KeyJ');
+  expect(errors).toEqual([]);
+});
+
+test('story: chapter select -> cutscenes -> VS splash -> fight', async ({ page }) => {
+  const errors: string[] = [];
+  await boot(page, errors);
+  await page.click('[data-m=story]');
+  await expect(page.locator('.ch-card')).toHaveCount(8);
+  await page.click('[data-a=continue]');
+  await expect(page.locator('.story-title')).toBeVisible();
+  await page.keyboard.press('Escape'); // skip cutscenes up to the first fight
+  await expect(page.locator('.story-vs')).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.vs-timer')).toBeVisible();
+  const f0 = await frame(page);
+  await page.waitForTimeout(1500);
+  expect(await frame(page)).toBeGreaterThan(f0);
   expect(errors).toEqual([]);
 });

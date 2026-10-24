@@ -1,7 +1,7 @@
 // Input devices -> per-frame bitmasks. Keyboard sets are remappable (persisted in localStorage).
-import { IN_ATTACK, IN_DOWN, IN_GRAB, IN_GUARD, IN_JUMP, IN_LEFT, IN_RIGHT, IN_SPECIAL, IN_UP } from '../sim/input';
+import { IN_ATTACK, IN_DOWN, IN_GRAB, IN_GUARD, IN_JUMP, IN_LEFT, IN_RIGHT, IN_SMASH, IN_SPECIAL, IN_UP } from '../sim/input';
 
-export const ACTIONS = ['up', 'down', 'left', 'right', 'jump', 'attack', 'special', 'guard', 'grab'] as const;
+export const ACTIONS = ['up', 'down', 'left', 'right', 'jump', 'attack', 'smash', 'special', 'guard', 'grab'] as const;
 export type Action = (typeof ACTIONS)[number];
 
 export const ACTION_BITS: Record<Action, number> = {
@@ -11,6 +11,7 @@ export const ACTION_BITS: Record<Action, number> = {
   right: IN_RIGHT,
   jump: IN_JUMP,
   attack: IN_ATTACK,
+  smash: IN_SMASH,
   special: IN_SPECIAL,
   guard: IN_GUARD,
   grab: IN_GRAB,
@@ -18,17 +19,20 @@ export const ACTION_BITS: Record<Action, number> = {
 
 export type KeySet = Record<Action, string[]>;
 
+// Keyboard 1 is the single-player layout: left hand moves (WASD, W = jump), right hand on J K L / U I.
+// Keyboard 2 is the second player sharing the laptop (arrows + the keys left of Enter).
 export const DEFAULT_KEYS: KeySet[] = [
   {
     up: ['KeyW'],
     down: ['KeyS'],
     left: ['KeyA'],
     right: ['KeyD'],
-    jump: ['KeyW'],
-    attack: ['KeyF'],
-    special: ['KeyG'],
-    guard: ['KeyH'],
-    grab: ['KeyT'],
+    jump: ['KeyW', 'Space'],
+    attack: ['KeyJ'],
+    smash: ['KeyI'],
+    special: ['KeyK'],
+    guard: ['KeyL', 'ShiftLeft'],
+    grab: ['KeyU'],
   },
   {
     up: ['ArrowUp'],
@@ -37,13 +41,14 @@ export const DEFAULT_KEYS: KeySet[] = [
     right: ['ArrowRight'],
     jump: ['ArrowUp'],
     attack: ['Comma'],
+    smash: ['Quote'],
     special: ['Period'],
     guard: ['Slash'],
     grab: ['Semicolon'],
   },
 ];
 
-const STORE_KEY = 'fray.keys.v1';
+const STORE_KEY = 'fray.keys.v2'; // bump when defaults change so old saves don't shadow them
 
 function clone(k: KeySet[]): KeySet[] {
   return k.map((s) => Object.fromEntries(ACTIONS.map((a) => [a, [...s[a]]])) as KeySet);
@@ -127,10 +132,11 @@ export class InputManager {
     if (ax > dz || b(15)) m |= IN_RIGHT;
     if (ay < -dz || b(12)) m |= IN_UP;
     if (ay > dz || b(13)) m |= IN_DOWN;
-    // Standard mapping (Xbox layout): A attack, B special, X/Y jump, LB/LT guard, RB/RT grab.
+    // Standard mapping (Xbox layout): A attack, B special, X jump (stick up also jumps), Y smash, LB/LT guard, RB/RT grab.
     if (b(0)) m |= IN_ATTACK;
     if (b(1)) m |= IN_SPECIAL;
-    if (b(2) || b(3)) m |= IN_JUMP;
+    if (b(2) || ay < -0.7 || b(12)) m |= IN_JUMP;
+    if (b(3)) m |= IN_SMASH;
     if (b(4) || b(6)) m |= IN_GUARD;
     if (b(5) || b(7)) m |= IN_GRAB;
     // Right stick = smash attacks shortcut (direction + attack)
@@ -142,7 +148,7 @@ export class InputManager {
       else if (rx > 0.6) m |= IN_RIGHT;
       else if (ry < -0.6) m |= IN_UP;
       else m |= IN_DOWN;
-      m |= IN_ATTACK;
+      m |= IN_SMASH;
     }
     return m;
   }

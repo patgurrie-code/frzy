@@ -28,12 +28,13 @@ export const enum Act {
   Respawn, // on the respawn platform
   Beam, // locked in a beam clash
   Victory,
+  KiCharge, // holding Guard + Special: fills ki, vulnerable
 }
 
 export const ACT_NAMES = [
   'Idle', 'Walk', 'Dash', 'Run', 'Crouch', 'JumpSquat', 'Air', 'Land', 'Attack', 'Shield', 'ShieldStun', 'Roll',
   'SpotDodge', 'AirDodge', 'Hitstun', 'Helpless', 'LedgeHang', 'LedgeGetup', 'Grabbing', 'Grabbed', 'Dizzy', 'Dead',
-  'Respawn', 'Beam', 'Victory',
+  'Respawn', 'Beam', 'Victory', 'KiCharge',
 ];
 
 export const enum Mode {
@@ -94,6 +95,12 @@ export interface FighterState {
   kos: number; // KOs scored
   falls: number;
   armorHits: number;
+  // Handicaps / story modifiers (percent; 100 = normal)
+  dmgMul: number; // damage dealt
+  defMul: number; // damage taken
+  maxHealth: number; // Versus health cap
+  kiRegen: number; // passive ki per 60 frames
+  kbMul: number; // knockback taken
 }
 
 export interface ProjectileState {
@@ -182,6 +189,8 @@ export interface GameState {
   events: SimEvent[]; // events emitted during the last tick (output only, deterministic)
   training: number; // 1 = training: infinite stocks, damage reset
   stockCount: number;
+  roundsToWin: number; // Versus: rounds needed to win the match (2 = best of 3)
+  roundFrames: number; // Versus: frames per round, 0 = no time limit
 }
 
 export function newFighterState(char: number, port: number, team: number): FighterState {
@@ -231,6 +240,11 @@ export function newFighterState(char: number, port: number, team: number): Fight
     kos: 0,
     falls: 0,
     armorHits: 0,
+    dmgMul: 100,
+    defMul: 100,
+    maxHealth: 1000,
+    kiRegen: 0,
+    kbMul: 100,
   };
 }
 
