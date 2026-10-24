@@ -4,7 +4,7 @@ import { FX } from '../sim/fixed';
 import { FIGHTERS } from '../sim/fighters';
 import { STAGES, StageDef } from '../sim/stage';
 import { Act, EvType, GameState, Mode, SimEvent } from '../sim/state';
-import { ProjKind } from '../sim/defs';
+import { ProjKind, FighterLook } from '../sim/defs';
 import { AnimRef, fighterAnim } from '../sim/pose';
 import { samplePoseF } from '../sim/anim';
 import { fighterJoints } from '../sim/sim';
@@ -107,13 +107,14 @@ export class GameRenderer {
   }
 
   /** (Re)build the scene for a match. */
-  setup(s: GameState): void {
+  setup(s: GameState, looks: (Partial<FighterLook> | undefined)[] = []): void {
     for (const m of this.models) {
       this.scene.remove(m.root);
       this.scene.remove(m.shadow);
     }
     this.models = s.fighters.map((f) => {
-      const def = FIGHTERS[f.char];
+      const base = FIGHTERS[f.char];
+      const def = looks[f.port] ? { ...base, look: { ...base.look, ...looks[f.port] } } : base;
       const m = buildFighterModel(def);
       this.scene.add(m.root);
       this.scene.add(m.shadow);

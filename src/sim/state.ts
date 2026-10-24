@@ -189,6 +189,8 @@ export interface GameState {
   events: SimEvent[]; // events emitted during the last tick (output only, deterministic)
   training: number; // 1 = training: infinite stocks, damage reset
   stockCount: number;
+  roundsToWin: number; // Versus: rounds needed to win the match (2 = best of 3)
+  roundFrames: number; // Versus: frames per round, 0 = no time limit
 }
 
 export function newFighterState(char: number, port: number, team: number): FighterState {

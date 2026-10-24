@@ -5,7 +5,8 @@ import { Menu } from './ui/menu';
 import { Sfx } from './audio/sfx';
 import { InputManager } from './input/input';
 import { Match, MatchSetup } from './game';
-import { Mode } from './sim/state';
+import { Mode, GameState } from './sim/state';
+import { Story } from './ui/story';
 
 const canvas = document.getElementById('view') as HTMLCanvasElement;
 const ui = document.getElementById('ui') as HTMLElement;
@@ -50,9 +51,15 @@ function stopAttract() {
   attract = null;
 }
 
+let storyDone: ((s: GameState) => void) | null = null;
+
 const menu = new Menu(ui, input, sfx, {
   start(setup: MatchSetup) {
     startMatch(setup);
+  },
+  story() {
+    menu.hide();
+    story.open();
   },
   resume() {
     if (match?.paused) match.togglePause();
@@ -60,6 +67,12 @@ const menu = new Menu(ui, input, sfx, {
   quit() {
     match?.stop();
     match = null;
+    if (story.active) {
+      storyDone = null;
+      menu.hide();
+      story.open();
+      return;
+    }
     startAttract();
     menu.main();
   },
@@ -74,9 +87,42 @@ function startMatch(setup: MatchSetup) {
   menu.hide();
   match = new Match(setup, renderer, hud, sfx, input);
   match.onPause = () => menu.pause(match!.paused);
-  match.onEnd = (s) => menu.results(s, setup);
+  match.onEnd = (s) => {
+    if (storyDone) {
+      const cb = storyDone;
+      storyDone = null;
+      match?.stop();
+      match = null;
+      cb(s);
+    } else menu.results(s, setup);
+  };
   match.start();
 }
+
+// Story mode host: backdrops are quiet idle matches; fights are normal matches whose end goes back to the story.
+const story = new Story(ui, {
+  backdrop(players) {
+    match?.stop();
+    match = null;
+    stopAttract();
+    attract = new Match(
+      { mode: Mode.Versus, training: false, stocks: 1, quiet: true, idle: true, timeLimit: 0, players },
+      renderer,
+      hud,
+      sfx,
+      input,
+    );
+    attract.start();
+  },
+  fight(setup, done) {
+    storyDone = done;
+    startMatch(setup);
+  },
+  exit() {
+    startAttract();
+    menu.main();
+  },
+}, sfx);
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Backquote') fpsEl.classList.toggle('hidden');

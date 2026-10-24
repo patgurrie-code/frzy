@@ -64,6 +64,10 @@ export interface MatchConfig {
   stocks?: number;
   seed?: number;
   training?: boolean;
+  /** Versus: rounds to win (default 2 = best of 3). */
+  roundsToWin?: number;
+  /** Versus: seconds per round (default 99, 0 = untimed). */
+  timeLimit?: number;
   /** Per-player modifiers (story mode bosses, handicaps). Percent values, 100 = normal. */
   mods?: (FighterMods | undefined)[];
 }
@@ -108,6 +112,8 @@ export function createGame(cfg: MatchConfig): GameState {
     events: [],
     training: cfg.training ? 1 : 0,
     stockCount: cfg.stocks ?? 3,
+    roundsToWin: cfg.roundsToWin ?? 2,
+    roundFrames: cfg.timeLimit === undefined ? VS_ROUND_FRAMES : cfg.timeLimit * 60,
   };
   fighters.forEach((f, i) => {
     const md = cfg.mods?.[i];
@@ -130,7 +136,7 @@ function resetRound(s: GameState): void {
   s.clash = newClash();
   s.phase = Phase.Intro;
   s.phaseTimer = 0;
-  s.timer = VS_ROUND_FRAMES;
+  s.timer = s.roundFrames;
   s.freeze = 0;
   s.freezeOwner = -1;
   s.slowmo = 0;
@@ -315,8 +321,10 @@ export function step(s: GameState, inputs: readonly number[]): void {
 
   if (fighting) {
     if (s.mode === Mode.Versus) {
-      if (s.timer > 0) s.timer--;
-      if (s.timer === 0) timeUp(s);
+      if (s.roundFrames > 0) {
+        if (s.timer > 0) s.timer--;
+        if (s.timer === 0) timeUp(s);
+      }
     }
     checkMatchState(s);
   }
@@ -1962,7 +1970,7 @@ function timeUp(s: GameState): void {
 function endRound(s: GameState): void {
   if (s.mode !== Mode.Versus) return;
   const best = Math.max(...s.roundWins);
-  if (best >= 2 || s.round >= 9) {
+  if (best >= s.roundsToWin || s.round >= s.roundsToWin * 4 + 1) {
     s.phase = Phase.MatchEnd;
     s.phaseTimer = 0;
     let w = -1;

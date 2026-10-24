@@ -9,12 +9,24 @@ import { portrait } from './hud';
 
 export interface MenuCallbacks {
   start(setup: MatchSetup): void;
+  story(): void;
   resume(): void;
   quit(): void;
   rematch(): void;
 }
 
-const SETUP_KEY = 'fray.setup.v1';
+const SETUP_KEY = 'fray.setup.v2';
+
+/** Compact "how to play" table for keyboard 1 (shown on pause and character select). */
+export function controlsSheet(input: InputManager): string {
+  const k = input.keySets[0];
+  const key = (a: (typeof ACTIONS)[number]) => k[a].map(keyLabel).join(' / ') || '—';
+  return `<div class="controls-sheet">
+    <div><b>${key('left')} ${key('right')}</b> move (hold = run) · <b>${key('jump')}</b> jump · <b>${key('down')}</b> crouch / drop</div>
+    <div><b>${key('attack')}</b> attack (tap ×3 = combo) · <b>${key('smash')}</b> smash (+ direction) · <b>${key('special')}</b> special (+ direction)</div>
+    <div><b>${key('guard')}</b> guard / dodge · <b>${key('grab')}</b> grab · <b>${key('guard')} + ${key('special')}</b> charge ki · <b>${key('smash')} + ${key('special')}</b> EX · <b>${key('attack')} + ${key('special')}</b> SUPER (3 bars)</div>
+  </div>`;
+}
 
 function h(html: string): HTMLElement {
   const t = document.createElement('template');
@@ -76,7 +88,8 @@ export class Menu {
     const n = h(`<div class="screen main-menu">
       <div class="logo small">FRAY</div>
       <div class="menu-list">
-        <button class="primary big" data-m="platform"><b>PLATFORM</b><small>1–4 players · stocks · knock them off the stage</small></button>
+        <button class="primary big" data-m="story"><b>STORY</b><small>FRAY: EMBERFALL · 8 chapters · bosses</small></button>
+        <button class="big" data-m="platform"><b>PLATFORM</b><small>1–4 players · stocks · knock them off the stage</small></button>
         <button class="big" data-m="versus"><b>VERSUS</b><small>1v1 · health bars · best of 3 · 99 s</small></button>
         <button class="big" data-m="training"><b>TRAINING</b><small>hitboxes (F1) · frame step (F2)</small></button>
         <button class="big" data-m="settings"><b>SETTINGS</b><small>controls · key test · audio</small></button>
@@ -86,6 +99,7 @@ export class Menu {
       b.addEventListener('click', () => {
         const m = b.dataset.m!;
         if (m === 'settings') this.settings();
+        else if (m === 'story') this.cb.story();
         else this.select(m === 'versus' ? Mode.Versus : Mode.Platform, m === 'training');
       }),
     );
@@ -107,7 +121,7 @@ export class Menu {
     for (let i = 0; i < 4; i++) {
       const sp = saved?.players?.[i];
       players.push({
-        device: sp?.device ?? (i === 0 ? 'kb0' : i === 1 ? (training ? 'cpu' : 'kb1') : 'cpu'),
+        device: sp?.device ?? (i === 0 ? 'kb0' : 'cpu'),
         cpuLevel: training && i === 1 ? 0 : sp?.cpuLevel ?? 3,
         char: sp?.char ?? i % FIGHTERS.length,
         label: `P${i + 1}`,
@@ -128,6 +142,7 @@ export class Menu {
         ${mode === Mode.Platform && !training ? '<label class="opt">Stocks <select data-a="stocks"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>' : ''}
         <button class="primary" data-a="start">FIGHT ▶</button>
       </div>
+      ${controlsSheet(this.input)}
     </div>`);
     const slotsEl = n.querySelector('.slots')!;
     const pads = this.input.connectedPads();
@@ -245,7 +260,7 @@ export class Menu {
     const render = () => {
       body.innerHTML = `
         <p class="hint">Click a binding, then press a key to replace it. Shift+click adds an extra key. Right-click clears.
-        Tap-jump: Up is also bound to Jump by default — remove it from Jump to turn tap-jump off.</p>
+        Up is also bound to Jump by default (tap-jump) — remove it from Jump to turn that off.</p>
         <div class="bind-grid">
           ${[0, 1]
             .map(
@@ -256,7 +271,7 @@ export class Menu {
             )
             .join('')}
         </div>
-        <div class="hint">Gamepad (standard mapping): stick/d-pad move · A attack · B special · X/Y jump · LB/LT guard · RB/RT grab · right stick = smash attack.</div>
+        <div class="hint">Gamepad (standard mapping): stick/d-pad move (up = jump) · A attack · Y smash · B special · X jump · LB/LT guard · RB/RT grab · right stick = smash in a direction.</div>
         <button data-a="reset">Reset to defaults</button>`;
       body.querySelectorAll<HTMLButtonElement>('.bind').forEach((b) => {
         const si = Number(b.dataset.s);
@@ -350,6 +365,7 @@ export class Menu {
         <button class="primary" data-a="resume">Resume</button>
         <button data-a="quit">Quit to menu</button>
       </div>
+      ${controlsSheet(this.input)}
       <div class="hint">Esc to resume</div>
     </div>`);
     n.querySelector('[data-a=resume]')!.addEventListener('click', () => this.cb.resume());

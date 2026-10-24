@@ -2,7 +2,7 @@
 import { FIGHTERS } from '../sim/fighters';
 import { EvType, GameState, Mode, Phase, SimEvent, Act, ACT_NAMES } from '../sim/state';
 import { KI_MAX } from '../sim/sim';
-import { MOVE_NAMES } from '../sim/defs';
+import { MOVE_NAMES, FighterLook } from '../sim/defs';
 
 const PORT_COLORS = ['#ff4b4b', '#4b9bff', '#ffd23f', '#4bdc7a'];
 
@@ -10,9 +10,10 @@ function hex(n: number): string {
   return '#' + n.toString(16).padStart(6, '0');
 }
 
-export function portrait(char: number, size = 56): string {
+export function portrait(char: number, size = 56, look?: Partial<FighterLook>, name?: string): string {
   const d = FIGHTERS[char];
-  return `<div class="portrait" style="width:${size}px;height:${size}px;background:radial-gradient(circle at 35% 30%, ${hex(d.look.skin)} 0 28%, ${hex(d.look.body)} 29% 62%, ${hex(d.look.trim)} 63%);border-color:${hex(d.look.accent)}"><span>${d.name[0]}</span></div>`;
+  const lk = { ...d.look, ...(look ?? {}) };
+  return `<div class="portrait" style="width:${size}px;height:${size}px;background:radial-gradient(circle at 35% 30%, ${hex(lk.skin)} 0 28%, ${hex(lk.body)} 29% 62%, ${hex(lk.trim)} 63%);border-color:${hex(lk.accent)}"><span>${(name ?? d.name)[0]}</span></div>`;
 }
 
 function el(html: string): HTMLElement {
@@ -37,7 +38,8 @@ export class Hud {
     parent.append(this.root, this.banner, this.training);
   }
 
-  setup(s: GameState, playerLabels: string[]): void {
+  setup(s: GameState, playerLabels: string[], nameOverrides: (string | undefined)[] = [], looks: (Partial<FighterLook> | undefined)[] = []): void {
+    const fname = (i: number) => nameOverrides[i] ?? FIGHTERS[s.fighters[i].char].name;
     this.names = playerLabels;
     this.root.innerHTML = '';
     this.nodes = {};
@@ -47,11 +49,11 @@ export class Hud {
       const [a, b] = s.fighters;
       const side = (i: number, f = i === 0 ? a : b) => `
         <div class="vs-side vs-side-${i}">
-          ${portrait(f.char, 64)}
+          ${portrait(f.char, 64, looks[i], nameOverrides[i])}
           <div class="vs-barwrap">
-            <div class="vs-name">${FIGHTERS[f.char].name} <small>${playerLabels[i] ?? ''}</small></div>
+            <div class="vs-name">${fname(i)} <small>${playerLabels[i] ?? ''}</small></div>
             <div class="vs-bar"><div class="vs-lag" data-k="lag${i}"></div><div class="vs-fill" data-k="hp${i}"></div></div>
-            <div class="vs-pips" data-k="pips${i}"><i></i><i></i></div>
+            <div class="vs-pips" data-k="pips${i}">${'<i></i>'.repeat(s.roundsToWin)}</div>
           </div>
         </div>`;
       this.root.append(
@@ -68,9 +70,9 @@ export class Hud {
       s.fighters.forEach((f, i) => {
         row.append(
           el(`<div class="pf-card" style="--pc:${PORT_COLORS[i]}">
-            ${portrait(f.char, 52)}
+            ${portrait(f.char, 52, looks[i], nameOverrides[i])}
             <div class="pf-info">
-              <div class="pf-name">${playerLabels[i] ?? 'P' + (i + 1)} · ${FIGHTERS[f.char].name}</div>
+              <div class="pf-name">${playerLabels[i] ?? 'P' + (i + 1)} · ${fname(i)}</div>
               <div class="pf-dmg" data-k="dmg${i}">0<small>%</small></div>
               <div class="pf-stocks" data-k="stk${i}"></div>
               <div class="ki-bars small" data-k="ki${i}"><i></i><i></i><i></i></div>
@@ -93,7 +95,17 @@ export class Hud {
     for (const e of events) {
       switch (e.type) {
         case EvType.RoundStart:
-          this.showBanner(s.mode === Mode.Versus ? (s.round >= 3 && s.roundWins.every((w) => w === 1) ? 'FINAL ROUND' : `ROUND ${e.a}`) : 'READY', 'b-round', 110);
+          this.showBanner(
+            s.mode === Mode.Versus
+              ? s.roundsToWin > 1 && s.roundWins.every((w) => w === s.roundsToWin - 1)
+                ? 'FINAL ROUND'
+                : s.roundsToWin === 1
+                  ? 'ONE ROUND'
+                  : `ROUND ${e.a}`
+              : 'READY',
+            'b-round',
+            110,
+          );
           break;
         case EvType.Fight:
           this.showBanner(s.mode === Mode.Versus ? 'FIGHT!' : 'GO!', 'b-fight', 50);
@@ -106,7 +118,7 @@ export class Hud {
           break;
         case EvType.MatchEnd: {
           const w = e.a;
-          const name = w >= 0 ? `${this.names[w] ?? 'P' + (w + 1)} WINS` : 'DRAW';
+          const name = w >= 0 ? (this.names[w] === 'YOU' ? 'YOU WIN' : `${this.names[w] ?? 'P' + (w + 1)} WINS`) : 'DRAW';
           this.showBanner(s.mode === Mode.Versus ? name : `GAME!<br><small>${name}</small>`, 'b-game', 100000);
           break;
         }
@@ -130,8 +142,8 @@ export class Hud {
     const n = this.nodes;
     if (s.mode === Mode.Versus) {
       const secs = Math.ceil(s.timer / 60);
-      n.timer.textContent = String(Math.min(99, secs));
-      n.timer.classList.toggle('low', secs <= 10 && s.phase === Phase.Fight);
+      n.timer.textContent = s.roundFrames === 0 ? '∞' : String(Math.min(99, secs));
+      n.timer.classList.toggle('low', s.roundFrames > 0 && secs <= 10 && s.phase === Phase.Fight);
       s.fighters.forEach((f, i) => {
         const pct = (f.health / f.maxHealth) * 100;
         n['hp' + i].style.width = pct + '%';
