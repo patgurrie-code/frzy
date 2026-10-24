@@ -39,7 +39,8 @@ function limb(bone: THREE.Bone, child: number, r: number, mat: THREE.Material): 
 
 export function buildFighterModel(def: FighterDef): FighterModel {
   const look = def.look;
-  const bulky = look.build === 'bulky';
+  const bulky = look.build === 'bulky' || look.build === 'giant';
+  const hairStyle = look.hairStyle ?? (bulky ? 'flat' : 'spiky');
   const body = toonMat(look.body);
   const trim = toonMat(look.trim);
   const skin = toonMat(look.skin);
@@ -63,7 +64,7 @@ export function buildFighterModel(def: FighterDef): FighterModel {
     else bones[p].add(b);
   }
 
-  const k = bulky ? 1.3 : 1;
+  const k = look.build === 'giant' ? 1.55 : look.build === 'bulky' ? 1.3 : look.build === 'slim' ? 0.85 : 1;
   // Torso
   const hips = outlined(new THREE.BoxGeometry(0.3 * k, 0.2, 0.26 * k), trim);
   hips.position.set(0, 0.02, 0);
@@ -109,7 +110,31 @@ export function buildFighterModel(def: FighterDef): FighterModel {
   const band = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.04, 0.27), accent);
   band.position.set(0, 0.2, 0);
   bones[B.Head].add(band);
-  if (bulky) {
+  if (hairStyle === 'long') {
+    const cap = outlined(new THREE.SphereGeometry(0.14, 12, 10), hair);
+    cap.position.set(-0.02, 0.15, 0);
+    cap.scale.set(1, 1, 1.05);
+    bones[B.Head].add(cap);
+    const tail = outlined(new THREE.BoxGeometry(0.08, 0.42, 0.16), hair);
+    tail.position.set(-0.13, -0.05, 0);
+    tail.rotation.z = -0.15;
+    bones[B.Head].add(tail);
+  } else if (hairStyle === 'mohawk') {
+    for (let i = 0; i < 4; i++) {
+      const fin = outlined(new THREE.ConeGeometry(0.05, 0.16, 4), hair);
+      fin.position.set(0.06 - i * 0.07, 0.27 - i * 0.015, 0);
+      fin.rotation.z = 0.3 - i * 0.35;
+      bones[B.Head].add(fin);
+    }
+  } else if (hairStyle === 'hood') {
+    const hood = outlined(new THREE.SphereGeometry(0.16, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), hair);
+    hood.position.set(-0.015, 0.12, 0);
+    hood.rotation.z = 0.35;
+    bones[B.Head].add(hood);
+    const mask = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.2), hair);
+    mask.position.set(0.11, 0.07, 0);
+    bones[B.Head].add(mask);
+  } else if (hairStyle === 'flat') {
     const top = outlined(new THREE.BoxGeometry(0.24, 0.1, 0.24), hair);
     top.position.set(-0.01, 0.26, 0);
     bones[B.Head].add(top);
@@ -131,6 +156,31 @@ export function buildFighterModel(def: FighterDef): FighterModel {
       sp.position.set(x, y, z);
       sp.rotation.z = rz;
       bones[B.Head].add(sp);
+    }
+  }
+  // Cape
+  if (look.cape) {
+    const capeMat = new THREE.MeshToonMaterial({ color: look.accent, side: THREE.DoubleSide });
+    const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.42 * k, 0.95), capeMat);
+    cape.rotation.y = Math.PI / 2;
+    cape.rotation.x = 0;
+    cape.position.set(-0.16 * k, -0.3, 0);
+    bones[B.Spine2].add(cape);
+  }
+  // Weapons
+  if (look.weapon === 'spear') {
+    const shaft = outlined(new THREE.CylinderGeometry(0.025, 0.025, 1.9, 6), trim, 0.012);
+    shaft.position.set(0, -0.45, 0);
+    bones[B.RightHand].add(shaft);
+    const tip = outlined(new THREE.ConeGeometry(0.06, 0.28, 6), accent, 0.012);
+    tip.rotation.z = Math.PI;
+    tip.position.set(0, -1.52, 0);
+    bones[B.RightHand].add(tip);
+  } else if (look.weapon === 'blades') {
+    for (const hand of [B.RightHand, B.LeftHand]) {
+      const blade = outlined(new THREE.BoxGeometry(0.03, 0.55, 0.08), accent, 0.01);
+      blade.position.set(0.02, -0.32, 0);
+      bones[hand].add(blade);
     }
   }
   // Arms

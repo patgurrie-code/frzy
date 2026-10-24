@@ -157,6 +157,8 @@ export interface MoveDef {
   counter?: { from: number; to: number; jump: number };
   /** Command grab: a grab hitbox in this move immediately performs this throw (usually Mv.CmdThrow). */
   grabThrow?: number;
+  /** Render-only: hide the fighter on these frames (teleports). Does not affect hurtboxes; pair with `invuln`. */
+  vanish?: [number, number];
 }
 
 export interface FighterStats {

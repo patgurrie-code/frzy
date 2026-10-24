@@ -300,8 +300,10 @@ export class GameRenderer {
 
       // Invulnerability flicker, aura, shield
       const blink = f.invuln > 0 && f.act !== Act.LedgeHang && Math.floor(this.time * 20) % 2 === 0;
-      model.body.visible = !blink || f.act === Act.Respawn;
-      const auraOn = f.ex > 0 || (f.act === Act.Attack && f.charge > 0) || (cur.freeze > 0 && cur.freezeOwner === f.port);
+      const mvDef = f.act === Act.Attack && f.move >= 0 ? def.moves[f.move] : undefined;
+      const vanished = !!mvDef?.vanish && f.actFrame >= mvDef.vanish[0] && f.actFrame <= mvDef.vanish[1];
+      model.body.visible = (!blink || f.act === Act.Respawn) && !vanished;
+      const auraOn = f.ex > 0 || f.act === Act.KiCharge || (f.act === Act.Attack && f.charge > 0) || (cur.freeze > 0 && cur.freezeOwner === f.port);
       const ma = model.auraMat;
       ma.opacity = lerp(ma.opacity, auraOn ? 0.28 + Math.sin(this.time * 30) * 0.08 : f.ki >= 300 ? 0.08 : 0, 0.3);
       model.aura.visible = ma.opacity > 0.01;

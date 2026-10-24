@@ -144,7 +144,8 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
   // Super when close with full meter
   if (me.ki >= 300 && adx < 3 * M && abs(dy) < M && rand(s, port, 8, 4) === 0) return press(mem, IN_ATTACK | IN_SPECIAL);
 
-  const reach = (def.id === 'torval' ? 1.5 : 1.25) * M;
+  const REACH: Record<string, number> = { torval: 1.5, sera: 2.1, brakka: 1.6, vesha: 1.1 };
+  const reach = (REACH[def.id] ?? 1.25) * M;
   const actionable = me.act === Act.Idle || me.act === Act.Walk || me.act === Act.Run || me.act === Act.Dash || me.act === Act.Air || me.act === Act.Crouch;
   if (!actionable) return mem.prev & (IN_LEFT | IN_RIGHT);
 
