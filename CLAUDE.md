@@ -67,7 +67,12 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
 - Shield (Guard on ground): Smash-style HP, roll (tap left/right), spot dodge (tap down), grab (Attack/Grab), jump OOS.
   Air dodge (Guard in air, directional, once per airtime).
 - Grabs: Grab button; throws by direction; Attack = pummel; victim mashes to escape.
-- Training: F1 hitbox/hurtbox view, F2 frame-step (pause + advance one frame per press), F3 resume. Infinite stocks and ki.
+- Training: F1 hitbox/hurtbox view, F2 frame-step (pause + advance one frame per press), F3 resume, F4 reset damage
+  (the only place outside `step()` that writes state — offline training only). Infinite stocks and ki. P2 = CPU "Dummy" (level 0).
+- Stage collision: the main stage is a solid block; within 0.6 m of its edge the underside pushes you out sideways (so
+  recoveries slide up the wall to the ledge) instead of bonking.
+- CPU levels 1–9 (think rate, shield chance, smash/EX usage). Recovery aims just outside the ledge while below stage level.
+- Menus: attract mode (two CPUs, `quiet: true` match) runs behind the menus. Last setup saved in localStorage.
 
 ## Fighters
 - KESTREL (index 0): fast brawler, light (84), quick frames, Ki Dart / Blitz Elbow / Rising Comet / Counter Stance,

@@ -169,9 +169,12 @@ export class GameRenderer {
     const block = outlined(new THREE.BoxGeometry(w, thick, depth), toonMat(st.ground), 0.05);
     block.position.set(toM(p0.x1 + p0.x2) / 2, toM(p0.y) - thick / 2, 0);
     this.stageGroup.add(block);
-    const topSlab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.12, depth + 0.1), toonMat(st.accent));
-    topSlab.position.set(block.position.x, toM(p0.y) - 0.06, 0);
-    this.stageGroup.add(topSlab);
+    // Glowing trims along the front and back edges of the floor
+    for (const z of [depth / 2, -depth / 2]) {
+      const trimEdge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.12, 0.14), toonMat(st.accent, 0x113322));
+      trimEdge.position.set(block.position.x, toM(p0.y) - 0.05, z);
+      this.stageGroup.add(trimEdge);
+    }
     const under = new THREE.Mesh(new THREE.ConeGeometry(w * 0.45, thick * 2.4, 6), toonMat(0x3c3f52));
     under.rotation.x = Math.PI;
     under.position.set(block.position.x, toM(p0.bottom) - thick * 1.2, 0);

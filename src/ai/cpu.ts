@@ -98,7 +98,13 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
     const below = me.y < p0.y - M / 2;
     if (off || below) {
       if (me.act === Act.Hitstun && me.hitstun > 0) return 0;
-      const dirIn = me.x < 0 ? IN_RIGHT : IN_LEFT;
+      // Below the stage top: aim just outside the ledge (never under the stage); above it: aim inward.
+      const ledgeX = me.x < 0 ? p0.x1 - (M * 3) / 10 : p0.x2 + (M * 3) / 10;
+      let dirIn = me.x < 0 ? IN_RIGHT : IN_LEFT;
+      if (me.y < p0.y) {
+        if (abs(me.x - ledgeX) < M / 5) dirIn = 0;
+        else dirIn = ledgeX > me.x ? IN_RIGHT : IN_LEFT;
+      }
       if (me.act === Act.Helpless || (me.act === Act.Attack && (me.move === Mv.USpec || me.move === Mv.USpecEx))) return dirIn;
       if (me.jumps > 0 && me.vy <= 0 && (me.y < p0.y + M || off)) return press(mem, dirIn | IN_JUMP);
       if (me.vy <= 0 && me.y < p0.y + M / 2) {

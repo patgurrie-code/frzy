@@ -385,7 +385,7 @@ function updateFighter(s: GameState, f: FighterState, fighting: boolean): void {
     f.hitstun--;
     if (f.hitstun <= 0) {
       setAct(f, f.grounded ? Act.Idle : Act.Air);
-      if (f.grounded) f.combo = 0;
+      if (f.grounded) f.combo = f.comboDamage = 0;
     }
   }
   if (f.act === Act.ShieldStun) {
@@ -397,7 +397,7 @@ function updateFighter(s: GameState, f: FighterState, fighting: boolean): void {
     f.shieldHp = SHIELD_MAX >> 1;
   }
 
-  if (f.act !== Act.Hitstun && f.act !== Act.Dizzy && f.combo > 0 && f.grounded) f.combo = 0;
+  if (f.act !== Act.Hitstun && f.act !== Act.Dizzy && f.combo > 0 && f.grounded) f.combo = f.comboDamage = 0;
 
   if (f.grounded) updateGround(s, f, cur);
   else updateAirState(s, f, cur);
@@ -1181,7 +1181,8 @@ function moveAndCollide(s: GameState, f: FighterState): void {
     // Main stage block sides
     const p0 = plats[0];
     if (!f.grounded && f.y < p0.y && f.y > p0.bottom - m(1.8) && f.x > p0.x1 && f.x < p0.x2) {
-      if (f.y > p0.bottom) {
+      const nearEdge = f.x - p0.x1 < m(0.6) || p0.x2 - f.x < m(0.6);
+      if (f.y > p0.bottom || nearEdge) {
         // inside the block: push to the nearest side
         if (f.x - p0.x1 < p0.x2 - f.x) f.x = p0.x1 - 1;
         else f.x = p0.x2 + 1;
