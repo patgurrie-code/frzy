@@ -38,7 +38,32 @@ moves[Mv.Jab] = mb.move(
     { f: 16 },
   ],
   [hb(5, 7, { bone: R, at: PALM, r: 0.17, dmg: 5, bkb: 25, kbg: 45, angle: 361, hitstun: 16 })],
-  { iasa: 16 },
+  { iasa: 16, chain: { from: 8, next: Mv.Jab2 } },
+);
+
+moves[Mv.Jab2] = mb.move(
+  'Backhand',
+  24,
+  [
+    { f: 0, r: { RightArm: 80, RightForeArm: 30 } },
+    { f: 5, r: { LeftArm: 92, LeftForeArm: 10, Spine: -14 } },
+    { f: 10, r: { LeftArm: 90 } },
+    { f: 18 },
+  ],
+  [hb(5, 7, { bone: B.LeftHand, at: PALM, r: 0.18, dmg: 4, bkb: 25, kbg: 40, angle: 361, hitstun: 18 })],
+  { iasa: 18, chain: { from: 9, next: Mv.Jab3 } },
+);
+
+moves[Mv.Jab3] = mb.move(
+  'Twin Palm Burst',
+  36,
+  [
+    { f: 0, r: { RightArm: 20, LeftArm: 20, RightForeArm: 110, LeftForeArm: 110 } },
+    { f: 8, r: { RightArm: 92, LeftArm: 90, RightForeArm: 0, LeftForeArm: 0, RightHand: 90, LeftHand: 90, Spine: -20 }, root: [0.1, -0.06] },
+    { f: 14, r: { RightArm: 90 } },
+    { f: 28 },
+  ],
+  [hb(8, 11, { bone: R, at: [0, -0.15], r: 0.3, dmg: 8, bkb: 55, kbg: 70, angle: 40, hitstun: 28, sfx: Sfx.Ki })],
 );
 
 moves[Mv.FTilt] = mb.move(
@@ -394,6 +419,8 @@ moves[Mv.LedgeAttack] = mb.move(
   [hb(11, 14, { bone: R, at: PALM, r: 0.28, dmg: 9, bkb: 50, kbg: 40, angle: 40 })],
   { invuln: [1, 12] },
 );
+
+moves[Mv.CmdThrow] = moves[Mv.FThrow];
 
 export const TORVAL: FighterDef = {
   id: 'torval',

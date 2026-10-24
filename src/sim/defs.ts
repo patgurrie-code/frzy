@@ -32,6 +32,9 @@ export const enum Mv {
   Super,
   DashAttack,
   LedgeAttack,
+  Jab2,
+  Jab3,
+  CmdThrow, // throw performed automatically after a command-grab special connects
   COUNT,
 }
 export const MOVE_COUNT = Mv.COUNT as number;
@@ -41,7 +44,7 @@ export const MOVE_NAMES: readonly string[] = [
   'Neutral Air', 'Forward Air', 'Back Air', 'Up Air', 'Down Air',
   'Neutral Special', 'Side Special', 'Up Special', 'Down Special',
   'Neutral Special EX', 'Side Special EX', 'Up Special EX', 'Down Special EX',
-  'Grab', 'Pummel', 'Forward Throw', 'Back Throw', 'Up Throw', 'Down Throw', 'Super', 'Dash Attack', 'Ledge Attack',
+  'Grab', 'Pummel', 'Forward Throw', 'Back Throw', 'Up Throw', 'Down Throw', 'Super', 'Dash Attack', 'Ledge Attack', 'Jab 2', 'Jab 3', 'Command Throw',
 ];
 
 export const enum Sfx {
@@ -148,6 +151,12 @@ export interface MoveDef {
   iasa?: number;
   /** Ground move that keeps sliding with this traction (FX/frame^2). */
   slide?: boolean;
+  /** Jab chains: pressing Attack from this frame on continues into `next`. */
+  chain?: { from: number; next: number };
+  /** Counter: if hit during [from, to], ignore the hit and jump to move frame `jump` (the counter strike). */
+  counter?: { from: number; to: number; jump: number };
+  /** Command grab: a grab hitbox in this move immediately performs this throw (usually Mv.CmdThrow). */
+  grabThrow?: number;
 }
 
 export interface FighterStats {
@@ -195,6 +204,7 @@ export interface FighterAnims {
   ko: Anim;
   victory: Anim;
   beam: Anim;
+  charge: Anim;
 }
 
 export interface FighterLook {
@@ -205,7 +215,11 @@ export interface FighterLook {
   accent: number;
   hair: number;
   /** Placeholder build style hints for the renderer. */
-  build: 'lean' | 'bulky';
+  build: 'lean' | 'bulky' | 'slim' | 'giant';
+  /** Optional props on the placeholder model. */
+  weapon?: 'spear' | 'blades' | 'none';
+  cape?: boolean;
+  hairStyle?: 'spiky' | 'flat' | 'long' | 'mohawk' | 'hood';
 }
 
 export interface FighterDef {

@@ -11,6 +11,7 @@ import {
   IN_LEFT,
   IN_RIGHT,
   IN_SPECIAL,
+  IN_SMASH,
   IN_UP,
   INPUT_HISTORY,
 } from './input';
@@ -41,7 +42,8 @@ export const VS_ROUND_FRAMES = 99 * 60;
 export const KI_MAX = 300;
 export const KI_BAR = 100;
 const BUFFER = 5;
-const SMASH_TAP = 6; // a direction pressed within this many frames before Attack = smash
+const AUTO_RUN = 9; // Platform: walking this many frames in one direction breaks into a run
+const KI_CHARGE_RATE = 1; // ki per frame while charging
 const DOUBLE_TAP = 14;
 const KB_DECAY = 66; // FX/frame^2 knockback decay
 const LAUNCH_MUL = 39; // FX/frame per knockback unit
@@ -62,6 +64,17 @@ export interface MatchConfig {
   stocks?: number;
   seed?: number;
   training?: boolean;
+  /** Per-player modifiers (story mode bosses, handicaps). Percent values, 100 = normal. */
+  mods?: (FighterMods | undefined)[];
+}
+
+export interface FighterMods {
+  dmg?: number;
+  def?: number;
+  health?: number;
+  kiRegen?: number;
+  ki?: number;
+  kb?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +109,17 @@ export function createGame(cfg: MatchConfig): GameState {
     training: cfg.training ? 1 : 0,
     stockCount: cfg.stocks ?? 3,
   };
+  fighters.forEach((f, i) => {
+    const md = cfg.mods?.[i];
+    if (!md) return;
+    f.dmgMul = md.dmg ?? 100;
+    f.defMul = md.def ?? 100;
+    f.maxHealth = md.health ?? VS_HEALTH;
+    f.kiRegen = md.kiRegen ?? 0;
+    f.kbMul = md.kb ?? 100;
+    f.health = f.maxHealth;
+    if (md.ki !== undefined) f.ki = md.ki;
+  });
   resetRound(s);
   return s;
 }
@@ -122,10 +146,10 @@ function resetRound(s: GameState): void {
     f.platform = 0;
     f.jumps = FIGHTERS[f.char].stats.airJumps;
     f.damage = 0;
-    f.health = VS_HEALTH;
-    if (s.phase === Phase.Intro && s.round === 1) {
+    f.health = f.maxHealth;
+    if (s.phase === Phase.Intro && s.round === 1 && s.frame === 0) {
       f.stocks = s.mode === Mode.Versus ? 1 : s.stockCount;
-      f.ki = s.training ? KI_MAX : 0;
+      if (s.training) f.ki = KI_MAX;
     }
     f.hitlag = f.hitstun = 0;
     f.shieldHp = SHIELD_MAX;
@@ -323,6 +347,7 @@ function updateFighter(s: GameState, f: FighterState, fighting: boolean): void {
   if (f.ledgeCooldown > 0) f.ledgeCooldown--;
   if (f.drop > 0) f.drop--;
   if (s.training) f.ki = KI_MAX;
+  else if (f.kiRegen > 0 && fighting && s.frame % 60 === 0) addKi(f, f.kiRegen);
 
   // Shield regen
   if (f.act !== Act.Shield && f.act !== Act.ShieldStun && f.shieldHp < SHIELD_MAX) f.shieldHp = Math.min(SHIELD_MAX, f.shieldHp + 8);
@@ -447,18 +472,24 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
       groundMovement(s, f, cur, dx);
       return;
     case Act.JumpSquat:
-      // Up smash / specials / grab out of jump squat
+      // Specials / grab out of jump squat. With tap-jump (Up = Jump) Attack/Smash here cancel the jump into
+      // up tilt / up smash, so up-attacks stay usable on keyboard.
       if (pressed(s, f, IN_SPECIAL) >= 0 || pressed(s, f, IN_GRAB) >= 0) {
         if (groundActions(s, f, cur, true)) return;
       }
-      if (pressed(s, f, IN_ATTACK) >= 0) {
+      if (pressed(s, f, IN_SMASH) >= 0) {
         consume(s, f);
         startMove(s, f, Mv.USmash);
         return;
       }
+      if (pressed(s, f, IN_ATTACK) >= 0) {
+        consume(s, f);
+        startMove(s, f, cur & IN_SMASH ? Mv.USmash : Mv.UTilt);
+        return;
+      }
       groundFriction(f, st.traction);
       if (f.actFrame >= st.jumpSquat) {
-        const full = (cur & (IN_JUMP | IN_UP)) !== 0;
+        const full = (cur & IN_JUMP) !== 0;
         f.vy = full ? st.jumpV : st.hopV;
         f.vx = clamp(f.vx + dx * st.airAccel * 4, -st.airSpeed, st.airSpeed);
         f.grounded = 0;
@@ -476,6 +507,14 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
       return;
     case Act.Shield:
       updateShield(s, f, cur);
+      return;
+    case Act.KiCharge:
+      groundFriction(f, st.traction);
+      if ((cur & (IN_GUARD | IN_SPECIAL)) !== (IN_GUARD | IN_SPECIAL) || f.ki >= KI_MAX) {
+        setAct(f, cur & IN_GUARD ? Act.Shield : Act.Idle);
+        return;
+      }
+      addKi(f, KI_CHARGE_RATE);
       return;
     case Act.ShieldStun:
       groundFriction(f, st.traction >> 1);
@@ -501,6 +540,11 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
       return;
     case Act.Attack: {
       const mv = def(f).moves[f.move];
+      if (mv.chain && f.actFrame >= mv.chain.from && dirX(cur) === 0 && dirY(cur) === 0 && pressed(s, f, IN_ATTACK) >= 0) {
+        consume(s, f);
+        startMove(s, f, mv.chain.next);
+        return;
+      }
       if (mv.iasa && f.actFrame >= mv.iasa && groundActions(s, f, cur)) return;
       if (!hasMotionX(mv, f.actFrame)) groundFriction(f, mv.slide ? st.traction >> 1 : st.traction);
       return;
@@ -584,6 +628,11 @@ function groundMovement(s: GameState, f: FighterState, cur: number, dx: number):
     }
     if (!versus) f.facing = dx;
     if (f.act !== Act.Walk) setAct(f, Act.Walk);
+    if (!versus && f.actFrame >= AUTO_RUN && sign(f.vx) === dx) {
+      setAct(f, Act.Run);
+      f.vx = dx * st.run;
+      return;
+    }
     const target = dx * (versus && dx !== f.facing ? (st.walk * 3) >> 2 : st.walk);
     f.vx = approach(f.vx, target, st.walk >> 1);
     return;
@@ -613,10 +662,16 @@ function groundActions(s: GameState, f: FighterState, cur: number, fromJumpSquat
   const dx = dirX(cur);
   const dy = dirY(cur);
   if (trySuper(s, f)) return true;
+  // Ki charge: hold Guard + Special on the ground
+  if (cur & IN_GUARD && cur & IN_SPECIAL && !fromJumpSquat && f.ki < KI_MAX) {
+    consume(s, f);
+    setAct(f, Act.KiCharge);
+    return true;
+  }
   if (pressed(s, f, IN_SPECIAL) >= 0) {
     consume(s, f);
     if (dx !== 0 && dy === 0) f.facing = dx;
-    startSpecial(s, f, dx, dy, (cur & IN_GUARD) !== 0);
+    startSpecial(s, f, dx, dy, (cur & IN_SMASH) !== 0);
     return true;
   }
   if (pressed(s, f, IN_GRAB) >= 0) {
@@ -625,22 +680,21 @@ function groundActions(s: GameState, f: FighterState, cur: number, fromJumpSquat
     return true;
   }
   if (fromJumpSquat) return false;
-  const atk = pressed(s, f, IN_ATTACK);
+  const smashPress = pressed(s, f, IN_SMASH) >= 0;
+  const atk = smashPress ? s.frame : pressed(s, f, IN_ATTACK);
   if (atk >= 0) {
     consume(s, f);
-    if (f.act === Act.Dash || f.act === Act.Run) {
+    const smash = smashPress || (cur & IN_SMASH) !== 0;
+    if (!smash && (f.act === Act.Dash || f.act === Act.Run)) {
       startMove(s, f, Mv.DashAttack);
       return true;
     }
-    const smashH = dx !== 0 && tappedWithin(s, f, dx > 0 ? IN_RIGHT : IN_LEFT, SMASH_TAP, atk);
-    const smashU = dy > 0 && tappedWithin(s, f, IN_UP, SMASH_TAP, atk);
-    const smashD = dy < 0 && tappedWithin(s, f, IN_DOWN, SMASH_TAP, atk);
-    if (dy > 0) startMove(s, f, smashU ? Mv.USmash : Mv.UTilt);
-    else if (dy < 0) startMove(s, f, smashD ? Mv.DSmash : Mv.DTilt);
+    if (dy > 0) startMove(s, f, smash ? Mv.USmash : Mv.UTilt);
+    else if (dy < 0) startMove(s, f, smash ? Mv.DSmash : Mv.DTilt);
     else if (dx !== 0) {
       if (s.mode !== Mode.Versus) f.facing = dx;
-      startMove(s, f, smashH ? Mv.FSmash : Mv.FTilt);
-    } else startMove(s, f, Mv.Jab);
+      startMove(s, f, smash ? Mv.FSmash : Mv.FTilt);
+    } else startMove(s, f, smash ? Mv.FSmash : Mv.Jab);
     return true;
   }
   if (pressed(s, f, IN_JUMP) >= 0) {
@@ -681,12 +735,13 @@ function trySuper(s: GameState, f: FighterState): boolean {
   return true;
 }
 
-function startSpecial(s: GameState, f: FighterState, dx: number, dy: number, guard: boolean): void {
+/** `ex` = Smash held: spend 1 ki bar for the EX version. */
+function startSpecial(s: GameState, f: FighterState, dx: number, dy: number, ex: boolean): void {
   let mv: number = Mv.NSpec;
   if (dy > 0) mv = Mv.USpec;
   else if (dy < 0) mv = Mv.DSpec;
   else if (dx !== 0) mv = Mv.SSpec;
-  if (guard && f.ki >= KI_BAR) {
+  if (ex && f.ki >= KI_BAR) {
     f.ki -= KI_BAR;
     startMove(s, f, mv + (Mv.NSpecEx - Mv.NSpec));
     f.ex = 1;
@@ -715,9 +770,9 @@ function updateShield(s: GameState, f: FighterState, cur: number): void {
     return;
   }
   if (trySuper(s, f)) return;
-  if (pressed(s, f, IN_SPECIAL) >= 0) {
+  if (cur & IN_SPECIAL && f.ki < KI_MAX) {
     consume(s, f);
-    startSpecial(s, f, dirX(cur), dirY(cur), true);
+    setAct(f, Act.KiCharge);
     return;
   }
   if (pressed(s, f, IN_JUMP) >= 0) {
@@ -725,7 +780,7 @@ function updateShield(s: GameState, f: FighterState, cur: number): void {
     setAct(f, Act.JumpSquat);
     return;
   }
-  if (pressed(s, f, IN_ATTACK | IN_GRAB) >= 0 || pressed(s, f, IN_GRAB) >= 0 || pressed(s, f, IN_ATTACK) >= 0) {
+  if (pressed(s, f, IN_GRAB) >= 0 || pressed(s, f, IN_ATTACK) >= 0) {
     consume(s, f);
     startMove(s, f, Mv.Grab);
     return;
@@ -845,10 +900,10 @@ function airActions(s: GameState, f: FighterState, cur: number): boolean {
   if (pressed(s, f, IN_SPECIAL) >= 0) {
     consume(s, f);
     if (dx !== 0 && dy === 0) f.facing = dx;
-    startSpecial(s, f, dx, dy, (cur & IN_GUARD) !== 0);
+    startSpecial(s, f, dx, dy, (cur & IN_SMASH) !== 0);
     return true;
   }
-  if (pressed(s, f, IN_ATTACK) >= 0 || pressed(s, f, IN_GRAB) >= 0) {
+  if (pressed(s, f, IN_ATTACK) >= 0 || pressed(s, f, IN_GRAB) >= 0 || pressed(s, f, IN_SMASH) >= 0) {
     consume(s, f);
     let mv: number = Mv.NAir;
     if (dy > 0) mv = Mv.UAir;
@@ -883,7 +938,7 @@ function airActions(s: GameState, f: FighterState, cur: number): boolean {
 function progressMove(s: GameState, f: FighterState, cur: number): void {
   const mv = def(f).moves[f.move];
   // Smash charge: hold Attack to pause on the charge frame.
-  if (mv.charge && f.actFrame === mv.charge + 1 && cur & IN_ATTACK && f.charge < 60) {
+  if (mv.charge && f.actFrame === mv.charge + 1 && cur & (IN_ATTACK | IN_SMASH) && f.charge < 60) {
     f.charge++;
     f.actFrame--;
   }
@@ -1528,7 +1583,15 @@ function resolveHits(s: GameState): void {
   for (const p of pending) {
     if (p.h.kind === HitKind.Grab) {
       if (p.a.act !== Act.Attack || p.v.act === Act.Grabbed) continue;
+      const cmd = def(p.a).moves[p.a.move].grabThrow;
       startGrab(s, p.a, p.v);
+      if (cmd !== undefined) {
+        // Command grab: go straight into the throw
+        setAct(p.a, Act.Attack);
+        p.a.move = cmd;
+        p.a.actFrame = 1;
+        emit(s, EvType.Throw, p.a.x, p.a.y, p.a.port);
+      }
     } else {
       const power = p.a.move >= Mv.FSmash && p.a.move <= Mv.DSmash ? 100 + Math.trunc((p.a.charge * 2) / 3) : 100;
       applyHit(s, p.a, p.v, p.h, power, p.a.facing, p.x, p.y, false);
@@ -1718,7 +1781,23 @@ export function applyHit(
   isProjectile = false,
 ): void {
   const vd = def(v);
-  const dmg = Math.max(1, Math.trunc((h.dmg * power) / 100));
+  const dmg = Math.max(1, Math.trunc((h.dmg * power * a.dmgMul * v.defMul) / 1000000));
+
+  // Counter moves: absorb the hit and jump to the counter strike
+  if (!isThrow && v.act === Act.Attack) {
+    const cmv = vd.moves[v.move];
+    if (cmv.counter && v.actFrame >= cmv.counter.from && v.actFrame <= cmv.counter.to) {
+      v.actFrame = cmv.counter.jump;
+      v.invuln = Math.max(v.invuln, 12);
+      v.facing = hx >= v.x ? 1 : -1;
+      if (!isProjectile) a.hitlag = 16;
+      v.hitlag = 8;
+      for (let i = 0; i < v.hitGroups.length; i++) v.hitGroups[i] = 0;
+      addKi(v, 20);
+      emit(s, EvType.Parry, hx, hy, v.port, a.port);
+      return;
+    }
+  }
 
   // Shield / block
   if (!isThrow && (v.act === Act.Shield || v.act === Act.ShieldStun)) {
@@ -1764,6 +1843,7 @@ export function applyHit(
   const pct = s.mode === Mode.Versus ? 450 : v.damage;
   let kb = h.fixedKb ? h.bkb * 1000 : knockback(pct, dmg, vd.stats.weight, h.bkb, h.kbg);
   if (s.mode === Mode.Versus) kb = Math.trunc((kb * 70) / 100);
+  kb = Math.trunc((kb * v.kbMul) / 100);
   if (kb > 400000) kb = 400000;
 
   let ang = h.angle;
@@ -1870,8 +1950,10 @@ function timeUp(s: GameState): void {
   s.phase = Phase.RoundEnd;
   s.phaseTimer = 0;
   let w = -1;
-  if (a.health > b.health) w = 0;
-  else if (b.health > a.health) w = 1;
+  const pa = Math.trunc((a.health * 1000) / a.maxHealth);
+  const pb = Math.trunc((b.health * 1000) / b.maxHealth);
+  if (pa > pb) w = 0;
+  else if (pb > pa) w = 1;
   s.roundWinner = w;
   if (w >= 0) s.roundWins[w]++;
   emit(s, EvType.TimeUp, 0, 0, w);

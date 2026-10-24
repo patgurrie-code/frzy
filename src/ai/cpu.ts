@@ -5,7 +5,7 @@ import { hash32 } from '../sim/rng';
 import { FIGHTERS } from '../sim/fighters';
 import { STAGES } from '../sim/stage';
 import { Act, FighterState, GameState, Mode, Phase } from '../sim/state';
-import { IN_ATTACK, IN_DOWN, IN_GRAB, IN_GUARD, IN_JUMP, IN_LEFT, IN_RIGHT, IN_SPECIAL, IN_UP } from '../sim/input';
+import { IN_ATTACK, IN_DOWN, IN_GRAB, IN_GUARD, IN_JUMP, IN_LEFT, IN_RIGHT, IN_SMASH, IN_SPECIAL, IN_UP } from '../sim/input';
 import { Mv } from '../sim/defs';
 
 export interface CpuMemory {
@@ -44,7 +44,7 @@ function target(s: GameState, me: FighterState): FighterState | null {
 
 /** Release buttons that were held last frame so the next press registers as a rising edge. */
 function press(mem: CpuMemory, want: number): number {
-  const edge = IN_ATTACK | IN_SPECIAL | IN_JUMP | IN_GRAB;
+  const edge = IN_ATTACK | IN_SPECIAL | IN_JUMP | IN_GRAB | IN_SMASH;
   const conflict = want & mem.prev & edge;
   return want & ~conflict;
 }
@@ -108,7 +108,7 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
       if (me.act === Act.Helpless || (me.act === Act.Attack && (me.move === Mv.USpec || me.move === Mv.USpecEx))) return dirIn;
       if (me.jumps > 0 && me.vy <= 0 && (me.y < p0.y + M || off)) return press(mem, dirIn | IN_JUMP);
       if (me.vy <= 0 && me.y < p0.y + M / 2) {
-        const ex = me.ki >= 100 && level >= 6 ? IN_GUARD : 0;
+        const ex = me.ki >= 100 && level >= 6 ? IN_SMASH : 0;
         return press(mem, IN_UP | IN_SPECIAL | dirIn | ex);
       }
       return dirIn;
@@ -160,9 +160,9 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
     const pct = s.mode === Mode.Platform ? tgt.damage / 10 : 60;
     if (r < 12) return press(mem, IN_GRAB);
     if (r < 22 + pct / 6 && level >= 3) {
-      // smash: direction pressed on the same frame as attack (a tap)
+      // smash attack (dedicated Smash button + direction)
       const d = rand(s, port, 11, 3);
-      return press(mem, (d === 0 ? IN_UP : d === 1 ? IN_DOWN : dirT) | IN_ATTACK);
+      return press(mem, (d === 0 ? IN_UP : d === 1 ? IN_DOWN : dirT) | IN_SMASH);
     }
     if (r < 50) return press(mem, IN_ATTACK);
     if (r < 62) return press(mem, IN_DOWN | IN_ATTACK);
@@ -174,9 +174,15 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
   // Opponent above: jump toward
   if (dy > 1.6 * M && adx < 3 * M && me.grounded && rand(s, port, 12, 3) === 0) return press(mem, IN_JUMP | IN_UP | toward(tgt.x));
 
+  // Far away with little ki: charge (Guard + Special held)
+  if (adx > 6 * M && me.grounded && me.ki < 200 && level >= 4 && rand(s, port, 17, 100) < 30) {
+    mem.hold = IN_GUARD | IN_SPECIAL;
+    mem.holdUntil = s.frame + 20 + rand(s, port, 18, 40);
+    return mem.hold;
+  }
   // Mid range: projectiles sometimes
   if (adx > 4 * M && abs(dy) < M && me.grounded && rand(s, port, 13, 100) < 4 + level * 2) {
-    if (me.ki >= 100 && rand(s, port, 14, 4) === 0) return press(mem, IN_GUARD | IN_SPECIAL);
+    if (me.ki >= 100 && rand(s, port, 14, 4) === 0) return press(mem, IN_SMASH | IN_SPECIAL);
     return press(mem, IN_SPECIAL);
   }
   if (adx > 2 * M && adx < 4 * M && me.grounded && rand(s, port, 15, 100) < level * 2) return press(mem, toward(tgt.x) | IN_SPECIAL);

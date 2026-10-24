@@ -1,7 +1,7 @@
 // DOM HUD overlay. Reads state only.
 import { FIGHTERS } from '../sim/fighters';
 import { EvType, GameState, Mode, Phase, SimEvent, Act, ACT_NAMES } from '../sim/state';
-import { VS_HEALTH, KI_MAX } from '../sim/sim';
+import { KI_MAX } from '../sim/sim';
 import { MOVE_NAMES } from '../sim/defs';
 
 const PORT_COLORS = ['#ff4b4b', '#4b9bff', '#ffd23f', '#4bdc7a'];
@@ -41,7 +41,7 @@ export class Hud {
     this.names = playerLabels;
     this.root.innerHTML = '';
     this.nodes = {};
-    this.dispHealth = s.fighters.map(() => VS_HEALTH);
+    this.dispHealth = s.fighters.map((f) => f.maxHealth);
     this.root.className = 'hud ' + (s.mode === Mode.Versus ? 'hud-versus' : 'hud-platform');
     if (s.mode === Mode.Versus) {
       const [a, b] = s.fighters;
@@ -133,12 +133,12 @@ export class Hud {
       n.timer.textContent = String(Math.min(99, secs));
       n.timer.classList.toggle('low', secs <= 10 && s.phase === Phase.Fight);
       s.fighters.forEach((f, i) => {
-        const pct = (f.health / VS_HEALTH) * 100;
+        const pct = (f.health / f.maxHealth) * 100;
         n['hp' + i].style.width = pct + '%';
         n['hp' + i].classList.toggle('danger', pct < 25);
         this.dispHealth[i] = Math.max(f.health, this.dispHealth[i] - 6 * dtFrames);
         if (f.combo === 0) this.dispHealth[i] = Math.max(f.health, this.dispHealth[i] - 12 * dtFrames);
-        n['lag' + i].style.width = (this.dispHealth[i] / VS_HEALTH) * 100 + '%';
+        n['lag' + i].style.width = (this.dispHealth[i] / f.maxHealth) * 100 + '%';
         const pips = n['pips' + i].children;
         for (let k = 0; k < pips.length; k++) pips[k].classList.toggle('on', s.roundWins[i] > k);
         this.updateKi(f.ki, n['ki' + i], n['kin' + i]);
