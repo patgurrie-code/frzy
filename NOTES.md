@@ -5,6 +5,9 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 ## Log
 - 2026-10-24 (Claude Code): sim core, fighters, rules, tests; AGENTS.md added (kept in sync with CLAUDE.md by a test).
   GitHub push returned 403 (Claude GitHub App lacks access to the repo) — commits are local until access is fixed.
+- 2026-10-24 (Claude Code): Milestone 1 complete — renderer, input/remap/key test, gamepads, CPU, HUDs, menus, SFX, training,
+  Playwright smoke tests. Short key taps are latched for one sim frame (InputManager.endFrame). Supers keep ≥75% damage
+  under combo scaling. Verified visually in headless Chromium (title, select, versus, platform, training F1, clash, super).
 
 ## Done (Milestone 1)
 - Repo setup: Vite + TS + three + Vitest + Playwright, `render.yaml`, README with run/deploy steps.
