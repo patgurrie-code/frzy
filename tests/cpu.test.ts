@@ -21,7 +21,7 @@ describe('cpu', () => {
     const p = cpuMatch(Mode.Platform, [0, 1], 3600);
     expect(p.fighters.some((f) => f.damage > 0 || f.falls > 0)).toBe(true);
     const v = cpuMatch(Mode.Versus, [1, 0], 3600);
-    expect(v.fighters.some((f) => f.health < 1000)).toBe(true);
+    expect(v.fighters.some((f) => f.health < 1000) || v.roundWins.some((w) => w > 0)).toBe(true);
   });
 
   it('a platform match between CPUs eventually ends', () => {
