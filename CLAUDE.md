@@ -22,7 +22,8 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
 ## Architecture (non-negotiable)
 - `src/sim/` is a PURE deterministic module: no DOM, no three.js, no floats in state, no Math.sin/cos/random/sqrt, no Date.
   A test (`tests/sim.test.ts` "sim purity") greps for banned APIs.
-- Fixed 60 Hz tick: `step(state, inputs[])` where inputs is one 9-bit mask per player (`src/sim/input.ts`).
+- Fixed 60 Hz tick: `step(state, inputs[])` where inputs is one 10-bit mask per player (`src/sim/input.ts`:
+  Left Right Up Down Attack Special Jump Guard Grab Smash).
 - Units: integers, `FX = 10000` per metre. Angles are integer degrees. Trig via committed LUT `trigTable.ts`
   (regenerate with `node scripts/gen-trig.mjs`). `isqrt`, `iatan2` are integer.
 - Divisions use `Math.trunc(a / b)` (deterministic: IEEE division of integers + truncation).
@@ -56,17 +57,29 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
   walls at stage edges, no floating platforms, auto-face, guard blocks all directions with chip (1/8), shield never breaks.
   Draw on time-out awards nobody; match capped at 9 rounds.
 - Platform: 3 stocks default, blast zones, ledge hang (30f invuln, 300f max), respawn platform (invuln).
-- Controls (keyboard): one press = walk, double-tap = dash/run. Direction tapped ≤6 frames before Attack = smash, else tilt.
-  Tap-jump: W/Up are bound to both Up and Jump by default (remove Jump from W in settings to disable).
-  Attack in jump-squat = up smash. Specials/grab work out of jump-squat.
-- Ki: 0–300 (3 bars). Gain = hitbox ki on hit (attacker), damage taken (victim). EX special = Special while holding Guard (1 bar).
-  Super = Attack+Special together (≤3 frames apart) with 3 bars; with a full meter, a lone Attack/Special waits 2 frames for
-  its partner. Super → 50-frame cinematic freeze (`state.freeze`), camera zoom in renderer.
+- Controls are designed for ONE player on a laptop keyboard (default Keyboard 1, key store `fray.keys.v2`):
+  WASD move, **W = jump (tap-jump, user decision: jump stays on Up)**, Space also jumps, J attack, I smash, K special,
+  L / Left-Shift guard, U grab. Keyboard 2 (second local player): arrows (↑ jumps) , attack ' smash . special / guard ; grab.
+- Sim input rules: Attack (+dir) = jab / tilts; **Smash button (+dir) = smash attacks** (Smash alone = forward smash; no more
+  "tap direction" smash detection). Attack again during a jab = jab chain (Jab → Jab2 → Jab3 via `MoveDef.chain`).
+  Holding a direction walks, then auto-runs after 9 frames (Platform only; Versus walks + double-tap dash/back-dash).
+  Because Up also jumps: Attack / Smash pressed during jump-squat cancels the jump into up tilt / up smash (Smash-style).
+  Specials/grab also work out of jump-squat. Full hop = Jump still held at the end of jump-squat.
+- Ki: 0–300 (3 bars). Gain = hitbox ki on hit (attacker), damage taken (victim), Guard+Special held = **ki charge**
+  (`Act.KiCharge`, +1/frame, vulnerable). **EX special = Special while Smash is held** (1 bar). Super = Attack+Special together
+  (≤3 frames apart) with 3 bars; with a full meter a lone Attack/Special waits 2 frames for its partner.
+  Super → 50-frame cinematic freeze (`state.freeze`), camera zoom in renderer.
+- Move data features: `chain` (jab chains), `counter {from,to,jump}` (absorb a hit, jump to the counter strike),
+  `grabThrow` (command grab: a grab box in a special goes straight into that throw, usually `Mv.CmdThrow`),
+  `vanish` (render-only invisibility for teleports — always pair with `invuln`), `armor`, `invuln`, `charge`, `helpless`.
+- Handicaps / boss modifiers live in FighterState (percent): `dmgMul`, `defMul`, `maxHealth`, `kiRegen` (per second), `kbMul`.
+  Set via `MatchConfig.mods`. Versus `roundsToWin` (default 2) and `timeLimit` seconds (0 = untimed) are in MatchConfig/state.
 - Beam clash: two opposing beams' heads cross → both casters locked, mash Attack/Special; push ±1000; winner's beam continues with
   +50% power, loser's beam vanishes.
 - Shield (Guard on ground): Smash-style HP, roll (tap left/right), spot dodge (tap down), grab (Attack/Grab), jump OOS.
   Air dodge (Guard in air, directional, once per airtime).
 - Grabs: Grab button; throws by direction; Attack = pummel; victim mashes to escape.
+- Shield options: Attack/Grab = grab, Jump = jump, Special = ki charge (specials out of shield were removed for that).
 - Training: F1 hitbox/hurtbox view, F2 frame-step (pause + advance one frame per press), F3 resume, F4 reset damage
   (the only place outside `step()` that writes state — offline training only). Infinite stocks and ki. P2 = CPU "Dummy" (level 0).
 - Stage collision: the main stage is a solid block; within 0.6 m of its edge the underside pushes you out sideways (so
@@ -74,10 +87,35 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
 - CPU levels 1–9 (think rate, shield chance, smash/EX usage). Recovery aims just outside the ledge while below stage level.
 - Menus: attract mode (two CPUs, `quiet: true` match) runs behind the menus. Last setup saved in localStorage.
 
-## Fighters
-- KESTREL (index 0): fast brawler, light (84), quick frames, Ki Dart / Blitz Elbow / Rising Comet / Counter Stance,
-  super "Hundred Comet Barrage" (rush). EX neutral special is a short beam (so it can clash).
-- TORVAL (index 1): heavy ki-blaster (112), Storm Beam / Orb Volley / Ki Rocket / Aegis Burst (armour), super "Cataclysm Cannon".
+## Fighters (src/sim/fighters/, roster order = FIGHTERS index; append only)
+Every fighter has the full list: Jab→Jab2→Jab3, 3 tilts, 3 smashes, 5 aerials, 4 specials + 4 EX, grab, pummel, 4 throws,
+CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves keep old indices valid).
+- 0 KESTREL `brawler.ts`: fast brawler (84). Ki Dart / Blitz Elbow / Rising Comet / Counter Stance (real counter).
+  Super "Hundred Comet Barrage". EX neutral special is a short beam (so it can clash).
+- 1 TORVAL `blaster.ts`: heavy ki-blaster (112). Storm Beam / Orb Volley / Ki Rocket / Aegis Burst (armour). Super "Cataclysm Cannon".
+- 2 SERA `lancer.ts`: spear knight (98), longest reach (spear tip = RightHand offset (0,-1.45)). Javelin / Lancer Charge /
+  Vaulting Spiral / Pinning Strike (spike). Super "Thousand Lances". Placeholder: spear + cape + long hair.
+- 3 VESHA `shade.ts`: shadow ninja (72), fastest, 3 jumps total, reverse-grip twin blades. Shadow Kunai / Phase Step (teleport,
+  `vanish`) / Shade Ascent (teleport up) / Mirror Veil (counter). Super "Eclipse: Thousand Cuts".
+- 4 BRAKKA `titan.ts`: giant grappler (135), armour on many moves. Boulder Toss / Avalanche Grab (command grab → Mountain
+  Driver) / Rising Bull (armoured) / Seismic Stomp. Super "Titanfall".
+- Placeholder look options (`FighterLook`): build lean|bulky|slim|giant, weapon spear|blades, cape, hairStyle
+  spiky|flat|long|mohawk|hood. CPU reach per fighter id in `src/ai/cpu.ts` (REACH table) — add new fighters there.
+
+## Story mode ("FRAY: EMBERFALL")
+- Content is DATA in `src/story/story.ts`: `SPEAKERS` (cast; bosses = existing fighter + `look` override + `mods`),
+  `CHAPTERS` → scenes: `title`, `narration`, `dialogue` (`stage` = two speakers idling on stage behind the text), `fight`
+  (player/opponent speaker keys, CPU level, Mode, objective text, roundsToWin, timeLimit, stocks, playerMods/opponentMods,
+  taunts, defeat line). Test `tests/story.test.ts` validates references.
+- Presentation/flow in `src/ui/story.ts` (chapter select with lock/complete, title cards, narration, typewriter dialogue with
+  CSS "bust" portraits, VS splash, defeat → retry / easier CPU, chapter complete → unlock next). Progress in localStorage
+  `fray.story.v1` ({done: chapterIds}). Esc skips cutscenes to the next fight.
+- Plot: the Ember Moon shattered 12 years ago; shards made the Shardborn. Hierarch Malvek runs THE FRAY tournament and harvests
+  champions to rebuild the moon. Kestrel hunts for his brother Ren (now HOLLOW REN). Allies: Vesha (Malvek's ex-assassin),
+  Brakka (clan shard-heart stolen), Sera (last knight of the Dawn Lance), Torval (ex-champion/enforcer turned ally).
+  Prologue + chapters 1–7, final boss HIERARCH MALVEK (Torval moveset, gold look, 2200 HP, untimed).
+- `main.ts` hosts story: backdrops are quiet idle matches (`MatchSetup.idle`), fights are normal matches whose end returns to
+  the story; pausing → Quit returns to chapter select. Match/HUD/renderer accept per-player `name` and `look` overrides.
 
 ## Performance
 - Pixel ratio capped at 1.5, blob shadows (no shadow maps), toon material + inverted-hull outlines, DOM HUD.
