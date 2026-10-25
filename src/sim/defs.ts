@@ -209,6 +209,7 @@ export interface FighterAnims {
   victory: Anim;
   beam: Anim;
   charge: Anim;
+  knockdown: Anim;
 }
 
 export interface FighterLook {

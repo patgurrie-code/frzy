@@ -59,8 +59,13 @@ export function fighterAnim(f: FighterState, d: FighterDef, out: AnimRef): AnimR
       }
       break;
     case Act.Land:
-      anim = a.land;
-      clip = 'land';
+      if (f.landLag >= 20) {
+        anim = a.knockdown;
+        clip = 'knockdown';
+      } else {
+        anim = a.land;
+        clip = 'land';
+      }
       break;
     case Act.Attack:
     case Act.Grabbing:

@@ -1347,13 +1347,14 @@ function land(s: GameState, f: FighterState, plat: number): void {
         f.invuln = Math.max(f.invuln, 18);
         f.vx = dx * m(0.14);
         emit(s, EvType.Tech, f.x, f.y, f.port);
-      } else if (impact < -m(0.18) && s.mode !== Mode.Versus) {
-        // Hard landing while launched: bounce a little, knockdown
+      } else if (impact < -m(0.18)) {
+        // Hard landing while launched: knockdown (in Versus you're invulnerable while down, SF-style)
         f.kby = 0;
         f.kbx = f.kbx >> 1;
         setAct(f, Act.Land);
         f.landLag = 26;
         f.combo = 0;
+        if (s.mode === Mode.Versus) f.invuln = Math.max(f.invuln, 28);
       } else {
         f.kby = 0;
       }

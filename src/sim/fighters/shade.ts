@@ -323,7 +323,14 @@ export const VESHA: FighterDef = {
     shieldSize: m(0.7),
     power: 118,
   },
-  anims: stateAnims(mb, false),
+  anims: {
+    ...stateAnims(mb, false, { idlePeriod: 40, bob: 0.025, ninjaRun: true }),
+    victory: mb.anim([
+      { f: 0, r: { RightArm: 50, RightForeArm: 130, LeftArm: 55, LeftForeArm: 128, RightHand: -80, LeftHand: -80, Spine: 2, Head: 18, RightUpLeg: 6, LeftUpLeg: -6, RightLeg: -4, LeftLeg: -4 }, root: [0, 0] },
+      { f: 40, r: { Head: 24 } },
+      { f: 80, r: { Head: 18 } },
+    ], 80, true),
+  },
   moves,
   look: { body: 0x2a2440, trim: 0x15121f, skin: 0xc79a7c, accent: 0xb36bff, hair: 0x3a2d5c, build: 'slim', weapon: 'blades', hairStyle: 'hood' },
 };
