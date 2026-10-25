@@ -81,6 +81,9 @@ export interface HitboxDef {
   shield?: number;
   /** Fixed knockback (ignores percent), used by multi-hit links. */
   fixedKb?: boolean;
+  /** Versus block level: 'mid' (default, any guard), 'low' (must crouch-guard), 'overhead' (must stand-guard).
+   *  Aerials are overheads vs grounded defenders automatically; down tilts/smashes default to 'low'. */
+  level?: 'mid' | 'low' | 'overhead';
 }
 
 export interface MotionKey {
@@ -199,6 +202,9 @@ export interface FighterAnims {
   roll: Anim;
   airDodge: Anim;
   hitstun: Anim;
+  hitHigh: Anim;
+  hitMid: Anim;
+  hitLow: Anim;
   tumble: Anim;
   ledge: Anim;
   getup: Anim;
@@ -210,6 +216,8 @@ export interface FighterAnims {
   beam: Anim;
   charge: Anim;
   knockdown: Anim;
+  /** Pre-round intro pose (render only; played during the Intro phase). */
+  intro?: Anim;
 }
 
 export interface FighterLook {

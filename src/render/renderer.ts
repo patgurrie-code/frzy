@@ -9,7 +9,7 @@ import { AnimRef, fighterAnim } from '../sim/pose';
 import { samplePoseF } from '../sim/anim';
 import { fighterJoints } from '../sim/sim';
 import { HURTBOXES, bonePoint, makeJoints, BONE_COUNT } from '../sim/skeleton';
-import { buildFighterModel, applyPose, FighterModel, setFlash } from './fighterModel';
+import { buildFighterModel, applyPose, FighterModel, setFlash, setExpression } from './fighterModel';
 import { tryLoadGlb, updateGlb } from './glbLoader';
 import { toonMat, outlined } from './toon';
 
@@ -410,6 +410,11 @@ export class GameRenderer {
       fighterAnim(f, def, this.ref);
       let frame = this.ref.frame;
       if (p.act === f.act && p.move === f.move && p.actFrame !== f.actFrame && f.hitlag === 0) frame = f.actFrame - 1 + alpha;
+      // Pre-round intro pose (render only; fighters are intangible during the intro anyway)
+      if (cur.phase === 0 && f.act === Act.Idle && def.anims.intro) {
+        this.ref.anim = def.anims.intro;
+        frame = cur.phaseTimer - 1 + alpha;
+      }
       samplePoseF(this.ref.anim, Math.max(0, frame), this.rot, this.rootOff);
       applyPose(model, this.rot, this.rootOff);
       updateGlb(model, this.ref.clip, frame);
@@ -434,6 +439,23 @@ export class GameRenderer {
       const superGlow = cur.freeze > 0 && cur.freezeOwner === f.port ? 0.35 + Math.sin(this.time * 25) * 0.15 : 0;
       const parryGlow = f.invuln > 0 && f.act === Act.Attack ? 0.15 : 0;
       setFlash(model, Math.max(hitFlash, superGlow, parryGlow));
+      // Expressions: hurt when hit, shout while attacking/charging/super, random blinks otherwise
+      let expr: 'normal' | 'hurt' | 'shout' | 'blink' = 'normal';
+      const hurt = f.act === Act.Hitstun || f.act === Act.Dizzy || f.act === Act.Grabbed || f.act === Act.Dead || (f.act === Act.Land && f.landLag >= 20);
+      if (hurt) expr = 'hurt';
+      else if (f.act === Act.KiCharge || f.act === Act.Beam || (cur.freeze > 0 && cur.freezeOwner === f.port)) expr = 'shout';
+      else if (f.act === Act.Attack && f.move >= 0) {
+        const mv = def.moves[f.move];
+        if (mv.hitboxes.some((h) => f.actFrame >= h.start - 2 && f.actFrame <= h.end + 2) || mv.projectile || f.charge > 0) expr = 'shout';
+      }
+      if (expr === 'normal') {
+        model.blinkAt -= dt;
+        if (model.blinkAt < 0) {
+          expr = 'blink';
+          if (model.blinkAt < -0.12) model.blinkAt = 2 + Math.random() * 3.5;
+        }
+      }
+      setExpression(model, expr);
       const shielding = f.act === Act.Shield || f.act === Act.ShieldStun;
       model.shield.visible = shielding;
       if (shielding) {

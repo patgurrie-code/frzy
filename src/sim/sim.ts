@@ -1976,6 +1976,11 @@ export function applyHit(
   hitstun += bonusStun;
 
   setAct(v, Act.Hitstun);
+  {
+    // Reaction height from where the hit landed on the body
+    const rel = Math.trunc(((hy - v.y) * 1000) / vd.stats.scale);
+    v.hitHeight = rel > m(1.3) ? 0 : rel < m(0.6) ? 2 : 1;
+  }
   v.hitstun = hitstun;
   v.vx = 0;
   v.vy = 0;

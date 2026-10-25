@@ -94,8 +94,8 @@ export function fighterAnim(f: FighterState, d: FighterDef, out: AnimRef): AnimR
         anim = a.tumble;
         clip = 'tumble';
       } else {
-        anim = a.hitstun;
-        clip = 'hitstun';
+        anim = f.hitHeight === 0 ? a.hitHigh : f.hitHeight === 2 ? a.hitLow : a.hitMid;
+        clip = f.hitHeight === 0 ? 'hitHigh' : f.hitHeight === 2 ? 'hitLow' : 'hitMid';
       }
       break;
     case Act.Helpless:

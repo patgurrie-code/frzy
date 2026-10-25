@@ -10,6 +10,15 @@ export interface KeySpec {
   f: number;
   r?: Partial<Record<string, number>>;
   root?: [number, number];
+  /** Easing of the segment that STARTS at this key (see Ease). Auto-assigned for moves if omitted. */
+  ease?: Ease;
+}
+
+/** 0 linear · 1 snap (ease-out cubic: arrives fast, good for strikes) · 2 smooth (smoothstep, wind-ups/recoveries). */
+export const enum Ease {
+  Linear = 0,
+  Snap = 1,
+  Smooth = 2,
 }
 
 export interface CompiledKey {
@@ -17,6 +26,24 @@ export interface CompiledKey {
   rot: Int16Array;
   rootX: number;
   rootY: number;
+  ease: number;
+}
+
+/** Integer easing: t in [0,1024] -> eased [0,1024]. Exact integer maths (deterministic). */
+export function easeI(ease: number, t: number): number {
+  if (ease === Ease.Snap) {
+    const u = 1024 - t;
+    return 1024 - Math.trunc((u * u * u) / 1048576);
+  }
+  if (ease === Ease.Smooth) return Math.trunc((t * t * (3072 - 2 * t)) / 1048576);
+  return t;
+}
+
+/** Float easing for the renderer (same curves). */
+export function easeF(ease: number, t: number): number {
+  if (ease === Ease.Snap) return 1 - (1 - t) * (1 - t) * (1 - t);
+  if (ease === Ease.Smooth) return t * t * (3 - 2 * t);
+  return t;
 }
 
 export interface Anim {
@@ -53,9 +80,9 @@ export function compileAnim(base: KeySpec | null, keys: KeySpec[], length: numbe
   const out: CompiledKey[] = [];
   for (const k of keys) {
     apply(k);
-    out.push({ f: k.f, rot: rot.slice(), rootX, rootY });
+    out.push({ f: k.f, rot: rot.slice(), rootX, rootY, ease: k.ease ?? (loop ? Ease.Smooth : Ease.Linear) });
   }
-  if (out.length === 0) out.push({ f: 0, rot: rot.slice(), rootX, rootY });
+  if (out.length === 0) out.push({ f: 0, rot: rot.slice(), rootX, rootY, ease: Ease.Linear });
   return { keys: out, length: Math.max(1, length), loop };
 }
 
@@ -79,11 +106,10 @@ export function samplePose(a: Anim, frame: number, out: Pose): Pose {
     out.rootY = k0.rootY;
     return out;
   }
-  const num = f - k0.f;
-  const den = k1.f - k0.f;
-  for (let b = 0; b < BONE_COUNT; b++) out.rot[b] = k0.rot[b] + Math.trunc(((k1.rot[b] - k0.rot[b]) * num) / den);
-  out.rootX = k0.rootX + Math.trunc(((k1.rootX - k0.rootX) * num) / den);
-  out.rootY = k0.rootY + Math.trunc(((k1.rootY - k0.rootY) * num) / den);
+  const t = easeI(k0.ease, Math.trunc(((f - k0.f) * 1024) / (k1.f - k0.f)));
+  for (let b = 0; b < BONE_COUNT; b++) out.rot[b] = k0.rot[b] + Math.trunc(((k1.rot[b] - k0.rot[b]) * t) / 1024);
+  out.rootX = k0.rootX + Math.trunc(((k1.rootX - k0.rootX) * t) / 1024);
+  out.rootY = k0.rootY + Math.trunc(((k1.rootY - k0.rootY) * t) / 1024);
   return out;
 }
 
@@ -101,7 +127,7 @@ export function samplePoseF(a: Anim, frame: number, rot: Float32Array, root: Flo
     root[1] = k0.rootY;
     return;
   }
-  const t = Math.min(1, (f - k0.f) / (k1.f - k0.f));
+  const t = easeF(k0.ease, Math.min(1, (f - k0.f) / (k1.f - k0.f)));
   for (let b = 0; b < BONE_COUNT; b++) rot[b] = k0.rot[b] + (k1.rot[b] - k0.rot[b]) * t;
   root[0] = k0.rootX + (k1.rootX - k0.rootX) * t;
   root[1] = k0.rootY + (k1.rootY - k0.rootY) * t;

@@ -316,6 +316,13 @@ export const SERA: FighterDef = {
     power: 112,
   },
   anims: {
+    intro: mb.anim([
+      { f: 0, r: { RightArm: 5, RightForeArm: 80, RightHand: 100, LeftArm: 90, LeftForeArm: 120, Spine: 2, Head: -8, RightUpLeg: 4, LeftUpLeg: -4, RightLeg: 0, LeftLeg: 0 }, root: [0, 0] },
+      { f: 40, r: { Head: -14 } },
+      { f: 60, r: { RightArm: 160, RightForeArm: 0, RightHand: 0, Hips: -180 }, root: [0, 0.05] },
+      { f: 78, r: { Hips: -360 } },
+      { f: 100, r: { Hips: 0 } },
+    ], 110),
     ...stateAnims(mb, false, { idlePeriod: 70, bob: 0.015 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 10, RightForeArm: 80, RightHand: 100, LeftArm: 60, LeftForeArm: 110, Spine: 4, Head: -6, RightUpLeg: 5, LeftUpLeg: -5, RightLeg: 0, LeftLeg: 0 }, root: [0, 0] },

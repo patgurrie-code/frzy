@@ -101,6 +101,10 @@ export interface FighterState {
   maxHealth: number; // Versus health cap
   kiRegen: number; // passive ki per 60 frames
   kbMul: number; // knockback taken
+  hitHeight: number; // last hit reaction: 0 high, 1 mid, 2 low
+  guardLow: number; // 1 = crouch-guarding (Versus high/low blocking)
+  wallBounced: number; // 1 once a wall bounce happened in the current combo
+  throwTech: number; // frames left to break a fresh grab
 }
 
 export interface ProjectileState {
@@ -251,6 +255,10 @@ export function newFighterState(char: number, port: number, team: number): Fight
     maxHealth: 1000,
     kiRegen: 0,
     kbMul: 100,
+    hitHeight: 1,
+    guardLow: 0,
+    wallBounced: 0,
+    throwTech: 0,
   };
 }
 

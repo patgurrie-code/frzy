@@ -451,6 +451,12 @@ export const TORVAL: FighterDef = {
     power: 96,
   },
   anims: {
+    intro: mb.anim([
+      { f: 0, r: { Spine: -45, Head: 20, RightArm: 60, RightForeArm: 100, LeftArm: 62, LeftForeArm: 105, LeftHand: 60 }, root: [0, -0.04] },
+      { f: 45, r: { Spine: -40 } },
+      { f: 75, r: { Spine: 0, Head: -5, RightArm: 20, LeftArm: 20, RightForeArm: 60, LeftForeArm: 60 }, root: [0, 0] },
+      { f: 100 },
+    ], 110),
     ...stateAnims(mb, true, { idlePeriod: 90, bob: 0.015 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 45, RightForeArm: 95, RightHand: 0, LeftArm: 48, LeftForeArm: 100, LeftHand: 60, Spine: 4, Head: -8, RightUpLeg: 8, LeftUpLeg: -8, RightLeg: -5, LeftLeg: -5 }, root: [0, 0] },

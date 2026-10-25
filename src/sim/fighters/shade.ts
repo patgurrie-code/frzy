@@ -324,6 +324,12 @@ export const VESHA: FighterDef = {
     power: 118,
   },
   anims: {
+    intro: mb.anim([
+      { f: 0, r: { Spine: -50, Head: 40, RightArm: 60, LeftArm: 60, RightForeArm: 130, LeftForeArm: 130, RightUpLeg: 100, RightLeg: -140, LeftUpLeg: 70, LeftLeg: -140 }, root: [0, -0.55] },
+      { f: 45, r: { Head: 30 }, root: [0, -0.55] },
+      { f: 65, r: { Spine: -20, RightUpLeg: 40, LeftUpLeg: -20, RightLeg: -60, LeftLeg: -30 }, root: [0, 0.1] },
+      { f: 90 },
+    ], 110),
     ...stateAnims(mb, false, { idlePeriod: 40, bob: 0.025, ninjaRun: true }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 50, RightForeArm: 130, LeftArm: 55, LeftForeArm: 128, RightHand: -80, LeftHand: -80, Spine: 2, Head: 18, RightUpLeg: 6, LeftUpLeg: -6, RightLeg: -4, LeftLeg: -4 }, root: [0, 0] },

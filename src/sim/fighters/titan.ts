@@ -276,6 +276,16 @@ export const BRAKKA: FighterDef = {
     power: 90,
   },
   anims: {
+    intro: mb.anim([
+      { f: 0, r: { RightArm: 60, RightForeArm: 110, LeftArm: 30, LeftForeArm: 80, Spine: 5 }, root: [0, 0] },
+      { f: 10, r: { RightArm: 45, RightForeArm: 120 } },
+      { f: 20, r: { LeftArm: 60, LeftForeArm: 110, RightArm: 30, RightForeArm: 80 } },
+      { f: 30, r: { LeftArm: 45, LeftForeArm: 120 } },
+      { f: 40, r: { RightArm: 60, RightForeArm: 110, LeftArm: 30, LeftForeArm: 80 } },
+      { f: 60, r: { RightArm: 150, LeftArm: 150, RightForeArm: 40, LeftForeArm: 40, Spine: 25, Head: -40 }, root: [0, 0.02] },
+      { f: 85, r: { Spine: 20, Head: -35 } },
+      { f: 105 },
+    ], 110),
     ...stateAnims(mb, true, { idlePeriod: 48, bob: 0.04 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 95, RightForeArm: 120, LeftArm: 95, LeftForeArm: 120, RightHand: 0, Spine: 10, Head: -15, RightUpLeg: 25, LeftUpLeg: -25, RightLeg: -10, LeftLeg: -10 }, root: [0, -0.04] },
