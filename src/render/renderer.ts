@@ -50,6 +50,8 @@ export class GameRenderer {
   private hitInst: THREE.InstancedMesh;
   private dummy = new THREE.Object3D();
   private joints = makeJoints();
+  private trails: { pts: THREE.Vector3[]; mesh: THREE.Mesh; geo: THREE.BufferGeometry; width: number }[] = [];
+  private trailJoints = makeJoints();
   private clashFx: THREE.Mesh;
   private bgFar: THREE.Group = new THREE.Group();
 
@@ -114,6 +116,24 @@ export class GameRenderer {
       this.scene.remove(m.root);
       this.scene.remove(m.shadow);
     }
+    for (const t of this.trails) this.scene.remove(t.mesh);
+    this.trails = s.fighters.map((f) => {
+      const N = 10;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 3), 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 4), 4));
+      const idx: number[] = [];
+      for (let i = 0; i < N - 1; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+      geo.setIndex(idx);
+      const col = new THREE.Color(looks[f.port]?.accent ?? FIGHTERS[f.char].look.accent);
+      const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({ color: col.lerp(new THREE.Color(1, 1, 1), 0.45), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+      );
+      mesh.frustumCulled = false;
+      this.scene.add(mesh);
+      return { pts: [] as THREE.Vector3[], mesh, geo, width: 0.15 };
+    });
     this.models = s.fighters.map((f) => {
       const base = FIGHTERS[f.char];
       const def = looks[f.port] ? { ...base, look: { ...base.look, ...looks[f.port] } } : base;
@@ -443,6 +463,7 @@ export class GameRenderer {
       maxY = Math.max(maxY, y + 1.8);
     }
 
+    this.updateTrails(cur);
     this.renderProjectiles(cur);
     this.updateSparks(dt);
     this.updateParticles(dt);
@@ -513,6 +534,56 @@ export class GameRenderer {
       this.clashFx.position.set(toM(s.clash.pos), pa ? toM(pa.y) : 1, 0.5);
       this.clashFx.scale.setScalar(0.9 + Math.sin(this.time * 60) * 0.3);
     } else this.clashFx.visible = false;
+  }
+
+  /** Swoosh ribbons that follow each attack's (first) active hitbox. */
+  private updateTrails(s: GameState): void {
+    for (let i = 0; i < this.trails.length; i++) {
+      const tr = this.trails[i];
+      const f = s.fighters[i];
+      let added = false;
+      if (f && f.act === Act.Attack && f.move >= 0 && s.freeze === 0) {
+        const mv = FIGHTERS[f.char].moves[f.move];
+        const h = mv.hitboxes.find((hb) => hb.kind === 0 && f.actFrame >= hb.start - 1 && f.actFrame <= hb.end + 2);
+        if (h) {
+          const j = fighterJoints(f, this.trailJoints);
+          const [px, py] = bonePoint(j, h.bone, h.ox, h.oy);
+          const p = new THREE.Vector3(toM(f.x + px * f.facing), toM(f.y + py), 0.35);
+          const last = tr.pts[tr.pts.length - 1];
+          if (!last || last.distanceToSquared(p) > 0.0004) {
+            tr.pts.push(p);
+            tr.width = toM(h.r) * 1.1;
+            added = true;
+          }
+        }
+      }
+      if (!added && tr.pts.length) tr.pts.shift();
+      while (tr.pts.length > 10) tr.pts.shift();
+      const pos = tr.geo.attributes.position as THREE.BufferAttribute;
+      const col = tr.geo.attributes.color as THREE.BufferAttribute;
+      const n = tr.pts.length;
+      for (let k = 0; k < 10; k++) {
+        const p = tr.pts[Math.min(k, n - 1)];
+        if (!p || n < 2) {
+          pos.setXYZ(k * 2, 0, -100, 0);
+          pos.setXYZ(k * 2 + 1, 0, -100, 0);
+          continue;
+        }
+        const a = tr.pts[Math.max(0, Math.min(k, n - 1) - 1)];
+        const b = tr.pts[Math.min(n - 1, Math.min(k, n - 1) + 1)];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const t = Math.min(k, n - 1) / Math.max(1, n - 1); // 0 = oldest
+        const w = tr.width * t;
+        pos.setXYZ(k * 2, p.x - (dy / len) * w, p.y + (dx / len) * w, p.z);
+        pos.setXYZ(k * 2 + 1, p.x + (dy / len) * w, p.y - (dx / len) * w, p.z);
+        col.setXYZW(k * 2, 1, 1, 1, t * 0.9);
+        col.setXYZW(k * 2 + 1, 1, 1, 1, t * 0.9);
+      }
+      pos.needsUpdate = true;
+      col.needsUpdate = true;
+    }
   }
 
   private updateSparks(dt: number): void {
