@@ -1,6 +1,6 @@
 // KESTREL — fast rushdown brawler. Light, quick frame data, combo-oriented, short-range ki.
 import { FighterDef, MoveDef, Mv } from '../defs';
-import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, ProjKind, Sfx } from './common';
+import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, ProjKind, Sfx, burstMove } from './common';
 
 const stance = {
   f: 0,
@@ -93,7 +93,7 @@ moves[Mv.UTilt] = mb.move(
     { f: 11, r: { RightArm: 170, RightForeArm: 20 } },
     { f: 18 },
   ],
-  [hb(5, 9, { bone: R, at: FIST, r: 0.17, dmg: 6, bkb: 30, kbg: 110, angle: 88, hitstun: 20 })],
+  [hb(5, 8, { bone: B.Spine2, at: [0.5, 0.05], r: 0.26, dmg: 5, bkb: 35, kbg: 90, angle: 85, hitstun: 22, group: 3 }), hb(5, 9, { bone: R, at: FIST, r: 0.17, dmg: 6, bkb: 30, kbg: 110, angle: 88, hitstun: 20 })],
 );
 
 moves[Mv.DTilt] = mb.move(
@@ -410,7 +410,7 @@ moves[Mv.DashAttack] = mb.move(
     { f: 14, r: { RightUpLeg: 100 } },
     { f: 24 },
   ],
-  [hb(5, 12, { bone: B.RightLeg, at: [0, 0], r: 0.2, dmg: 9, bkb: 40, kbg: 65, angle: 60 })],
+  [hb(5, 12, { bone: B.RightLeg, at: [0, 0], r: 0.2, dmg: 9, bkb: 40, kbg: 65, angle: 60, level: 'low' })],
   { slide: true },
 );
 moves[Mv.LedgeAttack] = mb.move(
@@ -422,6 +422,7 @@ moves[Mv.LedgeAttack] = mb.move(
 );
 
 moves[Mv.CmdThrow] = moves[Mv.FThrow];
+moves[Mv.Burst] = burstMove(mb);
 
 export const KESTREL: FighterDef = {
   id: 'kestrel',

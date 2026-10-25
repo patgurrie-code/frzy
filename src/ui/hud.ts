@@ -123,6 +123,21 @@ export class Hud {
         case EvType.Cancel:
           this.callout(e.a, 'CANCEL', 'c-cancel');
           break;
+        case EvType.WrongGuard:
+          this.callout(e.a, s.fighters[e.b]?.guardLow ? 'OVERHEAD!' : 'LOW!', 'c-counter');
+          break;
+        case EvType.ThrowTech:
+          this.callout(e.a, 'THROW ESCAPE', 'c-tech');
+          break;
+        case EvType.WallBounce:
+          this.callout(1 - (e.a % 2), 'WALL BOUNCE', 'c-punish');
+          break;
+        case EvType.Burst:
+          this.callout(e.a, 'BURST!', 'c-parry');
+          break;
+        case EvType.Launch:
+          this.callout(e.a, 'LAUNCH!', 'c-first');
+          break;
         case EvType.RoundStart:
           this.showBanner(
             s.mode === Mode.Versus

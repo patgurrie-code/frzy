@@ -105,6 +105,7 @@ export interface FighterState {
   guardLow: number; // 1 = crouch-guarding (Versus high/low blocking)
   wallBounced: number; // 1 once a wall bounce happened in the current combo
   throwTech: number; // frames left to break a fresh grab
+  burstUsed: number; // Versus: 1 once the burst has been used this round
 }
 
 export interface ProjectileState {
@@ -175,6 +176,11 @@ export const enum EvType {
   CounterHit, // a = attacker port, b = victim port
   FirstHit, // a = attacker port
   Cancel, // a = port (special/super cancel)
+  WrongGuard, // a = attacker, b = victim; low hit a standing guard / overhead hit a crouching guard
+  ThrowTech, // a = port that escaped
+  WallBounce, // a = port bounced
+  Burst, // a = port
+  Launch, // a = attacker, b = victim (launcher into air combo)
 }
 
 export interface GameState {
@@ -259,6 +265,7 @@ export function newFighterState(char: number, port: number, team: number): Fight
     guardLow: 0,
     wallBounced: 0,
     throwTech: 0,
+    burstUsed: 0,
   };
 }
 

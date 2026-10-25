@@ -168,6 +168,24 @@ export class Sfx {
         case EvType.Cancel:
           this.tone(500, 0.12, 'sawtooth', 0.12, 1500);
           break;
+        case EvType.WrongGuard:
+          this.tone(320, 0.12, 'square', 0.18, 200);
+          break;
+        case EvType.ThrowTech:
+          this.burst(0.12, 2000, 0.25, 1.2);
+          this.tone(700, 0.1, 'triangle', 0.15, 400);
+          break;
+        case EvType.WallBounce:
+          this.burst(0.25, 400, 0.6, 0.6, 'lowpass');
+          this.tone(90, 0.25, 'sine', 0.3, 50);
+          break;
+        case EvType.Burst:
+          this.tone(150, 0.5, 'sawtooth', 0.25, 900);
+          this.burst(0.5, 1500, 0.4, 0.5);
+          break;
+        case EvType.Launch:
+          this.tone(300, 0.25, 'triangle', 0.18, 900);
+          break;
         case EvType.Respawn:
           this.tone(700, 0.3, 'sine', 0.12, 1400);
           break;

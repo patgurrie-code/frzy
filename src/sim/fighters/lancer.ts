@@ -1,7 +1,7 @@
 // SERA VALE — spear knight. Mid weight, long disjointed reach, punishes from range, weak up close.
 // Spear is held in the right hand; its tip is ~1.5 m along the hand's "down" axis.
 import { FighterDef, MoveDef, Mv } from '../defs';
-import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx } from './common';
+import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx, burstMove } from './common';
 
 const stance = {
   f: 0,
@@ -202,7 +202,7 @@ moves[Mv.DSpec] = mb.move(
   'Pinning Strike',
   46,
   [{ f: 0, r: { RightArm: 175, RightForeArm: 0 } }, { f: 14, r: { RightArm: 40, RightForeArm: 0, RightHand: 0, Spine: -35 }, root: [0.1, -0.3] }, { f: 34 }],
-  [hb(14, 17, { bone: R, at: TIP, r: 0.24, dmg: 14, bkb: 60, kbg: 50, angle: 270, sfx: Sfx.Heavy })],
+  [hb(14, 17, { bone: R, at: TIP, r: 0.24, dmg: 14, bkb: 60, kbg: 50, angle: 270, sfx: Sfx.Heavy, level: 'overhead' })],
 );
 moves[Mv.NSpecEx] = makeEx(moves[Mv.NSpec], 'Javelin Storm', {
   projectile: proj({ f: 13, bone: R, at: [0, -0.4], speed: 0.4, r: 0.2, life: 50, dmg: 5, bkb: 30, kbg: 50, angle: 30, rehit: 6, hits: 3, color: STEEL }),
@@ -247,6 +247,7 @@ moves[Mv.DThrow] = mb.move(
   { throwRelease: { f: 13, dmg: 7, bkb: 60, kbg: 45, angle: 75, ki: 10 } },
 );
 moves[Mv.CmdThrow] = moves[Mv.FThrow];
+moves[Mv.Burst] = burstMove(mb);
 
 moves[Mv.Super] = mb.move(
   'Thousand Lances',

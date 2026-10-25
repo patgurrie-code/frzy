@@ -21,6 +21,7 @@ export interface HbOpts {
   sfx?: Sfx;
   shield?: number;
   fixedKb?: boolean;
+  level?: 'mid' | 'low' | 'overhead';
 }
 
 /** Hitbox active on frames [start, end]. */
@@ -44,6 +45,7 @@ export function hb(start: number, end: number, o: HbOpts): HitboxDef {
     kind: HitKind.Hit,
     shield: o.shield,
     fixedKb: o.fixedKb,
+    level: o.level,
   };
 }
 
@@ -330,6 +332,7 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
       20,
       true,
     ),
+    crouchGuard: mb.anim([{ f: 0, r: { Spine: -25, Head: 20, RightArm: 95, RightForeArm: 125, LeftArm: 90, LeftForeArm: 130, RightUpLeg: 80, RightLeg: -110, LeftUpLeg: 50, LeftLeg: -120 }, root: [0, -0.32] }], 1),
     knockdown: mb.anim(
       [
         { f: 0, r: { Hips: 70, Spine: 10, Head: 10, RightArm: 120, LeftArm: 150, RightForeArm: 20, LeftForeArm: 30, RightUpLeg: 30, LeftUpLeg: 10, RightLeg: -40, LeftLeg: -20 }, root: [0, -0.75] },
@@ -343,4 +346,19 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
     ...ninja,
     beam: mb.anim([{ f: 0, r: { Spine: -10, RightArm: 90, RightForeArm: 0, LeftArm: 90, LeftForeArm: 0, RightHand: 90, LeftHand: 90, RightUpLeg: 40, RightLeg: -50, LeftUpLeg: -30, LeftLeg: -10 }, root: [0, -0.1] }], 1),
   };
+}
+
+/** Universal combo breaker: invulnerable shockwave that pushes the attacker away. */
+export function burstMove(mb: MoveBuilder): MoveDef {
+  return mb.move(
+    'Burst',
+    36,
+    [
+      { f: 0, r: { Spine: 10, RightArm: 30, LeftArm: 30, RightForeArm: 90, LeftForeArm: 90 }, root: [0, -0.05] },
+      { f: 6, r: { Spine: -5, Head: -25, RightArm: 150, LeftArm: 150, RightForeArm: 10, LeftForeArm: 10, RightUpLeg: 25, LeftUpLeg: -25 }, root: [0, 0.05] },
+      { f: 26 },
+    ],
+    [hb(6, 10, { bone: B.Spine1, at: [0, 0], r: 1.35, dmg: 1, bkb: 95, kbg: 0, angle: 45, fixedKb: true, hitstun: 26, ki: 0, sfx: Sfx.Ki })],
+    { invuln: [1, 24], gravity: false, motion: [mv(1, 0, 0)], kiCost: 100 },
+  );
 }

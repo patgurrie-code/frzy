@@ -270,6 +270,22 @@ export class GameRenderer {
           this.shake = Math.max(this.shake, 0.15);
           this.punch = Math.max(this.punch, 0.6);
           break;
+        case EvType.Burst:
+          this.spawnSpark(toM(e.x), toM(e.y), 2.4, 0xfff1a8, 22);
+          for (let i = 0; i < 18; i++) {
+            const a = (i / 18) * Math.PI * 2;
+            this.particle(toM(e.x), toM(e.y), Math.cos(a) * 11, Math.sin(a) * 11, 0xfff1a8, 0.07, 0.6, 16, 'streak');
+          }
+          this.shake = Math.max(this.shake, 0.3);
+          this.punch = Math.max(this.punch, 0.8);
+          break;
+        case EvType.WallBounce:
+          this.spawnSpark(toM(e.x), toM(e.y), 1.4, 0xffffff, 18, Math.PI / 2);
+          this.shake = Math.max(this.shake, 0.35);
+          break;
+        case EvType.Launch:
+          for (let i = 0; i < 10; i++) this.particle(toM(e.x) + (Math.random() - 0.5) * 0.4, toM(e.y), (Math.random() - 0.5) * 2, 10 + Math.random() * 6, 0xffffff, 0.04, 0.7, 14, 'streak');
+          break;
         case EvType.CounterHit:
           this.spawnSpark(toM(e.x), toM(e.y), 1.1, 0xff4d4d, 16);
           break;

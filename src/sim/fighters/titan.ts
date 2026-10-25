@@ -1,6 +1,6 @@
 // BRAKKA — giant grappler. Heaviest and slowest; armoured specials, a command grab, devastating throws.
 import { FighterDef, MoveDef, Mv } from '../defs';
-import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx } from './common';
+import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx, burstMove } from './common';
 
 const stance = {
   f: 0,
@@ -47,7 +47,7 @@ moves[Mv.Jab3] = mb.move(
   'Hammer Down',
   40,
   [{ f: 0, r: { RightArm: 178, LeftArm: 178, RightForeArm: 20, LeftForeArm: 20 } }, { f: 12, r: { RightArm: 60, LeftArm: 60, RightForeArm: 0, LeftForeArm: 0, Spine: -40 }, root: [0, -0.2] }, { f: 30 }],
-  [hb(12, 15, { bone: R, at: FIST, r: 0.32, dmg: 10, bkb: 60, kbg: 60, angle: 70, hitstun: 30, sfx: Sfx.Heavy })],
+  [hb(12, 15, { bone: R, at: FIST, r: 0.32, dmg: 10, bkb: 60, kbg: 60, angle: 70, hitstun: 30, sfx: Sfx.Heavy, level: 'overhead' })],
 );
 
 moves[Mv.FTilt] = mb.move(
@@ -61,7 +61,7 @@ moves[Mv.UTilt] = mb.move(
   'Overhead Clap',
   34,
   [{ f: 0 }, { f: 8, r: { RightArm: 178, LeftArm: 178, RightForeArm: 0, LeftForeArm: 0 } }, { f: 16, r: { RightArm: 170, LeftArm: 170 } }, { f: 28 }],
-  [hb(8, 13, { bone: R, at: FIST, r: 0.34, dmg: 11, bkb: 35, kbg: 98, angle: 90, hitstun: 22 })],
+  [hb(8, 11, { bone: B.Spine2, at: [0.5, 0.05], r: 0.26, dmg: 5, bkb: 35, kbg: 90, angle: 85, hitstun: 22, group: 3 }), hb(8, 13, { bone: R, at: FIST, r: 0.34, dmg: 11, bkb: 35, kbg: 98, angle: 90, hitstun: 22 })],
 );
 moves[Mv.DTilt] = mb.move(
   'Knee Crush',
@@ -219,6 +219,8 @@ moves[Mv.CmdThrow] = mb.move(
   [],
   { throwRelease: { f: 24, dmg: 18, bkb: 70, kbg: 75, angle: 80, ki: 25 } },
 );
+
+moves[Mv.Burst] = burstMove(mb);
 
 moves[Mv.Super] = mb.move(
   'Titanfall',

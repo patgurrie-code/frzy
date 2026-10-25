@@ -1,6 +1,6 @@
 // VESHA — shadow ninja. Lightest and fastest; teleports, twin blades, a mirror counter. Dies early.
 import { FighterDef, MoveDef, Mv } from '../defs';
-import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx } from './common';
+import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx, burstMove } from './common';
 
 const stance = {
   f: 0,
@@ -77,7 +77,7 @@ moves[Mv.UTilt] = mb.move(
   'Rising Edge',
   22,
   [{ f: 0 }, { f: 4, r: slash('Right', 175) }, { f: 9, r: slash('Right', 160) }, { f: 16 }],
-  [hb(4, 8, { bone: R, at: BLADE, r: 0.18, dmg: 6, bkb: 30, kbg: 105, angle: 90, hitstun: 20 })],
+  [hb(4, 7, { bone: B.Spine2, at: [0.5, 0.05], r: 0.26, dmg: 5, bkb: 35, kbg: 90, angle: 85, hitstun: 22, group: 3 }), hb(4, 8, { bone: R, at: BLADE, r: 0.18, dmg: 6, bkb: 30, kbg: 105, angle: 90, hitstun: 20 })],
 );
 moves[Mv.DTilt] = mb.move(
   'Low Slice',
@@ -248,6 +248,7 @@ moves[Mv.DThrow] = mb.move(
   { throwRelease: { f: 11, dmg: 5, bkb: 60, kbg: 40, angle: 80, ki: 10 } },
 );
 moves[Mv.CmdThrow] = moves[Mv.FThrow];
+moves[Mv.Burst] = burstMove(mb);
 
 moves[Mv.Super] = mb.move(
   'Eclipse: Thousand Cuts',
@@ -284,7 +285,7 @@ moves[Mv.DashAttack] = mb.move(
   'Sliding Cut',
   26,
   [{ f: 0, r: { ...slash('Right', 90), Spine: -40 }, root: [0, -0.3] }, { f: 12 }, { f: 20 }],
-  [hb(4, 10, { bone: R, at: BLADE, r: 0.2, dmg: 7, bkb: 40, kbg: 55, angle: 60 })],
+  [hb(4, 10, { bone: R, at: BLADE, r: 0.2, dmg: 7, bkb: 40, kbg: 55, angle: 60, level: 'low' })],
   { slide: true },
 );
 moves[Mv.LedgeAttack] = mb.move(

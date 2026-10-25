@@ -24,7 +24,8 @@ export function controlsSheet(input: InputManager): string {
   return `<div class="controls-sheet">
     <div><b>${key('left')} ${key('right')}</b> move (hold = run) · <b>${key('jump')}</b> jump · <b>${key('down')}</b> crouch / drop</div>
     <div><b>${key('attack')}</b> attack (tap ×3 = combo) · <b>${key('smash')}</b> smash (+ direction) · <b>${key('special')}</b> special (+ direction)</div>
-    <div><b>${key('guard')}</b> guard / dodge · <b>${key('grab')}</b> grab · <b>${key('guard')} + ${key('special')}</b> charge ki · <b>${key('smash')} + ${key('special')}</b> EX · <b>${key('attack')} + ${key('special')}</b> SUPER (3 bars)</div>
+    <div><b>${key('guard')}</b> guard (tap just before a hit = PARRY) · <b>${key('guard')} + ${key('down')}</b> crouch-block lows · <b>${key('grab')}</b> grab (press it when grabbed = escape)</div>
+    <div><b>${key('guard')} + ${key('special')}</b> charge ki (in hitstun = BURST) · <b>${key('smash')} + ${key('special')}</b> EX · <b>${key('attack')} + ${key('special')}</b> SUPER (3 bars) · hit → <b>${key('special')}</b> = cancel</div>
   </div>`;
 }
 
