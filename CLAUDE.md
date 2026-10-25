@@ -74,6 +74,13 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
   `vanish` (render-only invisibility for teleports — always pair with `invuln`), `armor`, `invuln`, `charge`, `helpless`.
 - Handicaps / boss modifiers live in FighterState (percent): `dmgMul`, `defMul`, `maxHealth`, `kiRegen` (per second), `kbMul`.
   Set via `MatchConfig.mods`. Versus `roundsToWin` (default 2) and `timeLimit` seconds (0 = untimed) are in MatchConfig/state.
+- Defence/combo systems: **parry** = shield raised ≤5 frames before a hit (no damage, attacker +22 hitlag, victim +25 ki);
+  **tech** = Guard tapped ≤12 frames before landing in hitstun (instant recovery, 18f invuln, roll with a direction);
+  **cancels** = a normal that has hit can cancel into a special/EX/super, a special that has hit into the super (`tryCancel`);
+  **counter hit** (hit during opponent's startup: +20% dmg, +8 hitstun) and **punish** (during recovery: +4 hitstun);
+  knockdowns on hard landings in both modes (Versus: invulnerable while down). Events: Parry, Tech, CounterHit, Punish,
+  FirstHit, Cancel → HUD callouts + SFX.
+- Balance knob: `FighterStats.power` (% damage dealt). Current: Torval 96, Sera 112, Vesha 118 (weight 78), Brakka 90.
 - Beam clash: two opposing beams' heads cross → both casters locked, mash Attack/Special; push ±1000; winner's beam continues with
   +50% power, loser's beam vanishes.
 - Shield (Guard on ground): Smash-style HP, roll (tap left/right), spot dodge (tap down), grab (Attack/Grab), jump OOS.
@@ -99,8 +106,23 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
   `vanish`) / Shade Ascent (teleport up) / Mirror Veil (counter). Super "Eclipse: Thousand Cuts".
 - 4 BRAKKA `titan.ts`: giant grappler (135), armour on many moves. Boulder Toss / Avalanche Grab (command grab → Mountain
   Driver) / Rising Bull (armoured) / Seismic Stomp. Super "Titanfall".
-- Placeholder look options (`FighterLook`): build lean|bulky|slim|giant, weapon spear|blades, cape, hairStyle
-  spiky|flat|long|mohawk|hood. CPU reach per fighter id in `src/ai/cpu.ts` (REACH table) — add new fighters there.
+- CPU reach per fighter id in `src/ai/cpu.ts` (REACH table) — add new fighters there.
+- Animation personality: `stateAnims(mb, heavy, style)` (idlePeriod, bob, ninjaRun); each fighter overrides `victory`.
+  `knockdown` anim is used for Land with landLag ≥ 20.
+
+## Character art (src/render/)
+- `kit.ts`: modelling toolkit. Parts (limb/box/sphere/cone/cyl/lathe) are authored in bone-local space, then merged per
+  (bone, material) + one inflated-hull outline per bone → ~2 draw calls per bone. `Dangle` = render-only secondary-motion
+  chain (scarves, capes, hair, coat panels): follows gravity, motion drag and a character-space bias, keeps parent twist.
+- `designs.ts`: one hand-authored design per fighter id (`kestrel`, `torval`, `sera`, `vesha`, `brakka`; `generic` fallback)
+  on a shared sculpted `body()` (lathe torso, tapered muscled limbs, face with eyes/brows/nose/mouth, fists, shoes).
+  Colours ALWAYS come from `FighterLook` so story bosses can recolour any design. New fighter → add a design function.
+- `toon.ts`: toon materials; characters use a fresnel rim light (`toonMat(color, emissive, rim)`); stage uses rim 0.
+- `fighterModel.ts`: builds bones + design, clones materials per model (`setFlash` = white hit flash / super glow),
+  flame-shader ki aura (`auraU` uniforms). Renderer turns models 0.42 rad toward the camera (3/4 view, render only).
+- Renderer FX: directional hit sparks + streak particles along the launch angle, dust puffs (land/jump/dodge/tech), camera
+  punch-in on hits, swoosh ribbons following the first active hitbox, hit flash. FPS overlay (` key) shows draw calls.
+- GLB models still replace the procedural design via `glbLoader.ts` (it hides non-bone children of the bones).
 
 ## Story mode ("FRAY: EMBERFALL")
 - Content is DATA in `src/story/story.ts`: `SPEAKERS` (cast; bosses = existing fighter + `look` override + `mods`),

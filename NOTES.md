@@ -12,6 +12,14 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
   per user), auto-run, jab chains, ki charge, counters, command grabs, handicaps; 3 new fighters (SERA, VESHA, BRAKKA);
   story mode base "FRAY: EMBERFALL" (prologue + 7 chapters, 2 bosses). 41 unit + 5 e2e tests passing.
   User plans to flesh out story/design with Codex — see "Story mode" in AGENTS.md.
+- 2026-10-25 (Claude Code): PR #2 merged. User asked to prioritise CHARACTER DESIGN and GAMEPLAY (not stages/music/modes).
+  Done: procedural character art overhaul (kit + per-fighter designs, swinging cloth/hair, rim light, 3/4 view, flame aura,
+  hit flash, swoosh trails), animation personality (idle rhythm, victory poses, ninja run, knockdown), parry / tech /
+  cancels / counter-hit / punish with callouts, impact FX, smarter CPU (combos, parries from frame data, techs, punishes),
+  balance power stat. 44 unit + 5 e2e tests passing.
+
+## Done (character & gameplay pass)
+- See AGENTS.md "Character art" and "Gameplay decisions → Defence/combo systems".
 
 ## Done (Milestone 2 base)
 - Controls rework for one player (see AGENTS.md "Gameplay decisions"); pause + select screens show a controls sheet.
@@ -39,7 +47,11 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 - Tests: 27 unit tests (determinism, save/load rerun, integer-only, purity grep, gameplay, CPU), 4 Playwright smoke tests.
 
 ## Known issues / ideas
-- Balance is rough: in CPU-vs-CPU round robins BRAKKA wins most, VESHA least. Needs a tuning pass (frame data, kb values).
+- Balance: CPU round robin (level 6, versus+platform) after the power stat: Kestrel 13, Brakka 9, Vesha 10, Torval 7, Sera 1-4.
+  Sera underperforms mostly because the CPU spaces her badly (it picks short moves at spear range) — give the CPU
+  per-move ranges, and consider faster spear startup.
+- Move animations are still the original keyframes; the new models make stiff poses more visible — a per-move polish pass
+  (anticipation/follow-through, smears) is the next big character win.
 - Story portraits are CSS placeholder busts; story has one stage only and no music. Locked chapter cards show the hero.
 - Story fights always use Keyboard 1 for the player (no device picker yet).
 - Placeholder poses are approximate (feet can float/clip slightly). Tune per move when real models arrive.
@@ -48,6 +60,8 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 - Performance target (60 fps integrated GPU) not yet measured on real hardware — headless runs use SwiftShader.
 
 ## Next (candidates)
+0. Character polish: per-move animation pass, facial expressions (hurt/shout), more costume detail (alt colours/skins),
+   hitstun reactions by hit height, intro animations before ROUND 1.
 1. Story polish (user + Codex): art/portraits, more scenes, branching choices, story-specific stages, music, unlock rewards
    ("A new challenger approaches" after chapters), arcade ladders per fighter.
 2. Balance/tuning pass with hitbox view; per-move SFX/VFX variety; tech on landing; ledge trump.
