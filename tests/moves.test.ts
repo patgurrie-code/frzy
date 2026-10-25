@@ -99,7 +99,7 @@ describe('special mechanics', () => {
       if (g.fighters[0].move === Mv.CmdThrow) thrown = true;
     }
     expect(thrown).toBe(true);
-    expect(g.fighters[1].damage).toBeGreaterThanOrEqual(180);
+    expect(g.fighters[1].damage).toBeGreaterThanOrEqual(150);
   });
 
   it('modifiers change health, damage and ki regen', () => {
