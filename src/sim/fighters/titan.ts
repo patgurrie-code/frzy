@@ -273,8 +273,16 @@ export const BRAKKA: FighterDef = {
     fastFall: m(0.34),
     scale: 1220,
     shieldSize: m(1.0),
+    power: 90,
   },
-  anims: stateAnims(mb, true),
+  anims: {
+    ...stateAnims(mb, true, { idlePeriod: 48, bob: 0.04 }),
+    victory: mb.anim([
+      { f: 0, r: { RightArm: 95, RightForeArm: 120, LeftArm: 95, LeftForeArm: 120, RightHand: 0, Spine: 10, Head: -15, RightUpLeg: 25, LeftUpLeg: -25, RightLeg: -10, LeftLeg: -10 }, root: [0, -0.04] },
+      { f: 15, r: { RightForeArm: 140, LeftForeArm: 140, Spine: 14 }, root: [0, -0.06] },
+      { f: 30, r: { RightForeArm: 120, LeftForeArm: 120, Spine: 10 }, root: [0, -0.04] },
+    ], 30, true),
+  },
   moves,
   look: { body: 0x6b4a32, trim: 0x2b2b2b, skin: 0x8a5a3c, accent: 0xff8a2b, hair: 0x1a1a1a, build: 'giant', hairStyle: 'mohawk' },
 };

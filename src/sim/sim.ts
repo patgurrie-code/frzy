@@ -113,6 +113,7 @@ export function createGame(cfg: MatchConfig): GameState {
     training: cfg.training ? 1 : 0,
     stockCount: cfg.stocks ?? 3,
     roundsToWin: cfg.roundsToWin ?? 2,
+    firstHit: 0,
     roundFrames: cfg.timeLimit === undefined ? VS_ROUND_FRAMES : cfg.timeLimit * 60,
   };
   fighters.forEach((f, i) => {
@@ -141,6 +142,7 @@ function resetRound(s: GameState): void {
   s.freezeOwner = -1;
   s.slowmo = 0;
   s.roundWinner = -1;
+  s.firstHit = 0;
   for (const f of s.fighters) {
     const sp = st.spawns[f.port % st.spawns.length];
     f.x = s.mode === Mode.Versus ? (f.port === 0 ? m(-2.5) : m(2.5)) : sp.x;
@@ -553,6 +555,7 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
         startMove(s, f, mv.chain.next);
         return;
       }
+      if (tryCancel(s, f, cur)) return;
       if (mv.iasa && f.actFrame >= mv.iasa && groundActions(s, f, cur)) return;
       if (!hasMotionX(mv, f.actFrame)) groundFriction(f, mv.slide ? st.traction >> 1 : st.traction);
       return;
@@ -663,6 +666,44 @@ function approach(v: number, target: number, step: number): number {
   if (v < target) return Math.min(target, v + step);
   if (v > target) return Math.max(target, v - step);
   return v;
+}
+
+function isNormal(move: number): boolean {
+  return move <= Mv.DAir || move === Mv.DashAttack || move === Mv.Jab2 || move === Mv.Jab3;
+}
+function isSpecial(move: number): boolean {
+  return move >= Mv.NSpec && move <= Mv.DSpecEx;
+}
+
+/**
+ * Cancels (fighting-game style): a normal that has hit can cancel into a special (or EX / super);
+ * a special that has hit can cancel into the super.
+ */
+function tryCancel(s: GameState, f: FighterState, cur: number): boolean {
+  if (f.act !== Act.Attack || f.move < 0) return false;
+  let hit = 0;
+  for (const g of f.hitGroups) hit |= g;
+  if (!hit) return false;
+  const bothPressed = f.ki >= KI_MAX && pressed(s, f, IN_SPECIAL) >= 0 && pressed(s, f, IN_ATTACK) >= 0;
+  if (isNormal(f.move)) {
+    if (bothPressed && trySuper(s, f)) {
+      emit(s, EvType.Cancel, f.x, f.y, f.port);
+      return true;
+    }
+    if (pressed(s, f, IN_SPECIAL) >= 0) {
+      consume(s, f);
+      const dx = dirX(cur);
+      const dy = dirY(cur);
+      if (dx !== 0 && dy === 0) f.facing = dx;
+      startSpecial(s, f, dx, dy, (cur & IN_SMASH) !== 0);
+      emit(s, EvType.Cancel, f.x, f.y, f.port);
+      return true;
+    }
+  } else if (isSpecial(f.move) && bothPressed && trySuper(s, f)) {
+    emit(s, EvType.Cancel, f.x, f.y, f.port);
+    return true;
+  }
+  return false;
 }
 
 /** Ground action selection. Returns true if an action started. */
@@ -861,6 +902,7 @@ function updateAirState(s: GameState, f: FighterState, cur: number): void {
       break;
     case Act.Attack: {
       const mv = def(f).moves[f.move];
+      if (tryCancel(s, f, cur)) break;
       if (mv.iasa && f.actFrame >= mv.iasa && airActions(s, f, cur)) break;
       if (!hasMotionX(mv, f.actFrame)) airDrift(f, dx, st.airSpeed);
       break;
@@ -1294,13 +1336,25 @@ function land(s: GameState, f: FighterState, plat: number): void {
       f.landLag = 10;
       break;
     case Act.Hitstun:
-      if (impact < -m(0.18) && s.mode !== Mode.Versus) {
-        // Hard landing while launched: bounce a little, knockdown
+      if (tappedWithin(s, f, IN_GUARD, 12) && (f.hitstun > 6 || impact < -m(0.18))) {
+        // Tech: guard pressed just before landing — recover instantly (roll if holding a direction)
+        const dx = dirX(inp(f, s.frame));
+        f.kbx = f.kby = 0;
+        f.hitstun = 0;
+        f.combo = f.comboDamage = 0;
+        setAct(f, Act.Land);
+        f.landLag = 8;
+        f.invuln = Math.max(f.invuln, 18);
+        f.vx = dx * m(0.14);
+        emit(s, EvType.Tech, f.x, f.y, f.port);
+      } else if (impact < -m(0.18)) {
+        // Hard landing while launched: knockdown (in Versus you're invulnerable while down, SF-style)
         f.kby = 0;
         f.kbx = f.kbx >> 1;
         setAct(f, Act.Land);
         f.landLag = 26;
         f.combo = 0;
+        if (s.mode === Mode.Versus) f.invuln = Math.max(f.invuln, 28);
       } else {
         f.kby = 0;
       }
@@ -1789,7 +1843,8 @@ export function applyHit(
   isProjectile = false,
 ): void {
   const vd = def(v);
-  const dmg = Math.max(1, Math.trunc((h.dmg * power * a.dmgMul * v.defMul) / 1000000));
+  const pw = def(a).stats.power ?? 100;
+  const dmg = Math.max(1, Math.trunc((h.dmg * power * a.dmgMul * v.defMul * pw) / 100000000));
 
   // Counter moves: absorb the hit and jump to the counter strike
   if (!isThrow && v.act === Act.Attack) {
@@ -1807,6 +1862,16 @@ export function applyHit(
     }
   }
 
+  // Parry: shield raised within the last 5 frames — no damage, attacker frozen and open to a punish
+  if (!isThrow && v.act === Act.Shield && v.actFrame <= 5) {
+    if (!isProjectile) a.hitlag = 22;
+    v.hitlag = 4;
+    v.actFrame = 6;
+    v.invuln = Math.max(v.invuln, 8);
+    addKi(v, 25);
+    emit(s, EvType.Parry, hx, hy, v.port, a.port);
+    return;
+  }
   // Shield / block
   if (!isThrow && (v.act === Act.Shield || v.act === Act.ShieldStun)) {
     const sd = (dmg + (h.shield ?? 0)) * 100 * (s.mode === Mode.Versus ? 0 : 1);
@@ -1827,8 +1892,35 @@ export function applyHit(
     return;
   }
 
-  const dealt = dealDamage(s, a, v, dmg, h.ki);
-  void dealt;
+  // Counter hit (victim was starting up a move) / punish (victim was recovering from one)
+  let bonusStun = 0;
+  let finalDmg = dmg;
+  if (!isThrow && v.act === Act.Attack && v.move >= 0) {
+    const vm = vd.moves[v.move];
+    let first = 999;
+    let last = 0;
+    for (const hb of vm.hitboxes) {
+      if (hb.start < first) first = hb.start;
+      if (hb.end > last) last = hb.end;
+    }
+    if (vm.projectile) {
+      first = Math.min(first, vm.projectile.f);
+      last = Math.max(last, vm.projectile.f);
+    }
+    if (first < 999 && v.actFrame < first) {
+      finalDmg = Math.trunc((dmg * 120) / 100);
+      bonusStun = 8;
+      emit(s, EvType.CounterHit, hx, hy, a.port, v.port);
+    } else if (last > 0 && v.actFrame > last) {
+      bonusStun = 4;
+      emit(s, EvType.Punish, hx, hy, a.port, v.port);
+    }
+  }
+  if (!s.firstHit && s.phase === Phase.Fight) {
+    s.firstHit = 1;
+    emit(s, EvType.FirstHit, hx, hy, a.port);
+  }
+  dealDamage(s, a, v, finalDmg, h.ki);
   v.lastHitBy = a.port;
   v.combo++;
 
@@ -1881,6 +1973,7 @@ export function applyHit(
   let hitstun = Math.trunc((kb * 4) / 10000);
   if (h.hitstun !== undefined && (s.mode === Mode.Versus || h.fixedKb)) hitstun = h.hitstun;
   if (hitstun < 6) hitstun = 6;
+  hitstun += bonusStun;
 
   setAct(v, Act.Hitstun);
   v.hitstun = hitstun;

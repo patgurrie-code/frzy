@@ -448,8 +448,16 @@ export const TORVAL: FighterDef = {
     fastFall: m(0.32),
     scale: 1120,
     shieldSize: m(0.9),
+    power: 96,
   },
-  anims: stateAnims(mb, true),
+  anims: {
+    ...stateAnims(mb, true, { idlePeriod: 90, bob: 0.015 }),
+    victory: mb.anim([
+      { f: 0, r: { RightArm: 45, RightForeArm: 95, RightHand: 0, LeftArm: 48, LeftForeArm: 100, LeftHand: 60, Spine: 4, Head: -8, RightUpLeg: 8, LeftUpLeg: -8, RightLeg: -5, LeftLeg: -5 }, root: [0, 0] },
+      { f: 60, r: { Head: -14 }, root: [0, 0.01] },
+      { f: 120, r: { Head: -8 }, root: [0, 0] },
+    ], 120, true),
+  },
   moves,
   look: { body: 0x3b6fd9, trim: 0xe8e2d0, skin: 0x9b6a4b, accent: 0xffc23d, hair: 0xf2f2f2, build: 'bulky' },
 };

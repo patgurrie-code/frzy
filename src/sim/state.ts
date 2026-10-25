@@ -166,6 +166,11 @@ export const enum EvType {
   ShieldBreak,
   Dodge,
   Parry,
+  Tech, // a = port
+  Punish, // a = attacker port, b = victim port
+  CounterHit, // a = attacker port, b = victim port
+  FirstHit, // a = attacker port
+  Cancel, // a = port (special/super cancel)
 }
 
 export interface GameState {
@@ -191,6 +196,7 @@ export interface GameState {
   stockCount: number;
   roundsToWin: number; // Versus: rounds needed to win the match (2 = best of 3)
   roundFrames: number; // Versus: frames per round, 0 = no time limit
+  firstHit: number; // 1 once someone has landed the first hit this round
 }
 
 export function newFighterState(char: number, port: number, team: number): FighterState {

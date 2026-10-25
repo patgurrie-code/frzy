@@ -112,7 +112,7 @@ export function proj(o: ProjOpts): ProjectileDef {
 export type MoveOpts = Omit<MoveDef, 'name' | 'anim' | 'length' | 'hitboxes'>;
 
 export class MoveBuilder {
-  constructor(private stance: KeySpec) {}
+  constructor(readonly stance: KeySpec) {}
 
   move(name: string, length: number, keys: KeySpec[], hitboxes: HitboxDef[], opts: MoveOpts = {}): MoveDef {
     return { name, anim: compileAnim(this.stance, keys, length), length, hitboxes, ...opts };
@@ -153,16 +153,44 @@ export function makeEx(base: MoveDef, name: string, extra: Partial<MoveDef> = {}
 }
 
 /** Generic state animations built from a stance, with per-fighter flavour. */
-export function stateAnims(mb: MoveBuilder, heavy: boolean): FighterAnims {
-  const bob = heavy ? -0.03 : -0.02;
+export interface AnimStyle {
+  /** Idle breathing/bounce period in frames (boxers bounce fast, veterans breathe slow). */
+  idlePeriod?: number;
+  /** Idle bob depth in metres. */
+  bob?: number;
+  /** Ninja run: torso far forward, arms trailing straight back. */
+  ninjaRun?: boolean;
+}
+
+export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {}): FighterAnims {
+  const bob = style.bob ?? (heavy ? 0.03 : 0.02);
+  const per = style.idlePeriod ?? 60;
+  const ry = mb.stance.root ? mb.stance.root[1] : 0;
+  const sp = (mb.stance.r?.Spine as number | undefined) ?? 0;
+  const hd = (mb.stance.r?.Head as number | undefined) ?? 0;
+  const ninja = style.ninjaRun
+    ? {
+        run: mb.anim(
+          [
+            { f: 0, r: { Spine: -45, Head: 35, RightArm: -70, LeftArm: -75, RightForeArm: 10, LeftForeArm: 10, RightUpLeg: 70, RightLeg: -40, LeftUpLeg: -50, LeftLeg: -70 }, root: [0, -0.16] },
+            { f: 6, r: { RightUpLeg: 10, RightLeg: -100, LeftUpLeg: 20, LeftLeg: -20 }, root: [0, -0.1] },
+            { f: 12, r: { RightUpLeg: -50, RightLeg: -70, LeftUpLeg: 70, LeftLeg: -40 }, root: [0, -0.16] },
+            { f: 18, r: { RightUpLeg: 20, RightLeg: -20, LeftUpLeg: 10, LeftLeg: -100 }, root: [0, -0.1] },
+            { f: 24, r: { RightUpLeg: 70, RightLeg: -40, LeftUpLeg: -50, LeftLeg: -70 }, root: [0, -0.16] },
+          ],
+          24,
+          true,
+        ),
+      }
+    : {};
   return {
     idle: mb.anim(
       [
         { f: 0 },
-        { f: 30, r: { Spine: heavy ? -4 : -10, Head: 6 }, root: [0, -0.035 + bob] },
-        { f: 60, r: { Spine: heavy ? -6 : -8, Head: 8 }, root: [0, -0.035] },
+        { f: Math.round(per / 2), r: { Spine: sp - (heavy ? 2 : 3), Head: hd + 2 }, root: [0, ry - bob] },
+        { f: per, r: { Spine: sp, Head: hd }, root: [0, ry] },
       ],
-      60,
+      per,
       true,
     ),
     walk: mb.anim(
@@ -259,6 +287,17 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean): FighterAnims {
       20,
       true,
     ),
+    knockdown: mb.anim(
+      [
+        { f: 0, r: { Hips: 70, Spine: 10, Head: 10, RightArm: 120, LeftArm: 150, RightForeArm: 20, LeftForeArm: 30, RightUpLeg: 30, LeftUpLeg: 10, RightLeg: -40, LeftLeg: -20 }, root: [0, -0.75] },
+        { f: 6, r: { Hips: 85 }, root: [0, -0.82] },
+        { f: 16, r: { Hips: 80 }, root: [0, -0.8] },
+        { f: 22, r: { Hips: 20, Spine: -30, RightArm: 20, LeftArm: 20, RightUpLeg: 80, RightLeg: -110, LeftUpLeg: 50, LeftLeg: -110 }, root: [0, -0.35] },
+        { f: 26 },
+      ],
+      26,
+    ),
+    ...ninja,
     beam: mb.anim([{ f: 0, r: { Spine: -10, RightArm: 90, RightForeArm: 0, LeftArm: 90, LeftForeArm: 0, RightHand: 90, LeftHand: 90, RightUpLeg: 40, RightLeg: -50, LeftUpLeg: -30, LeftLeg: -10 }, root: [0, -0.1] }], 1),
   };
 }

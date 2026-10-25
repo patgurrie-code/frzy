@@ -294,7 +294,7 @@ export const SERA: FighterDef = {
   description: 'Spear knight. Longest reach in the roster; keep foes at the tip.',
   superName: 'Thousand Lances',
   stats: {
-    weight: 98,
+    weight: 100,
     walk: m(0.055),
     run: m(0.12),
     dash: m(0.13),
@@ -313,8 +313,16 @@ export const SERA: FighterDef = {
     fastFall: m(0.3),
     scale: 1010,
     shieldSize: m(0.8),
+    power: 112,
   },
-  anims: stateAnims(mb, false),
+  anims: {
+    ...stateAnims(mb, false, { idlePeriod: 70, bob: 0.015 }),
+    victory: mb.anim([
+      { f: 0, r: { RightArm: 10, RightForeArm: 80, RightHand: 100, LeftArm: 60, LeftForeArm: 110, Spine: 4, Head: -6, RightUpLeg: 5, LeftUpLeg: -5, RightLeg: 0, LeftLeg: 0 }, root: [0, 0] },
+      { f: 50, r: { Head: -12 } },
+      { f: 100, r: { Head: -6 } },
+    ], 100, true),
+  },
   moves,
   look: { body: 0xd8dde8, trim: 0x2f3b5c, skin: 0xe9c09a, accent: 0x8fd3ff, hair: 0xc94a3a, build: 'lean', weapon: 'spear', cape: true, hairStyle: 'long' },
 };

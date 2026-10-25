@@ -9,7 +9,7 @@ import { AnimRef, fighterAnim } from '../sim/pose';
 import { samplePoseF } from '../sim/anim';
 import { fighterJoints } from '../sim/sim';
 import { HURTBOXES, bonePoint, makeJoints, BONE_COUNT } from '../sim/skeleton';
-import { buildFighterModel, applyPose, FighterModel } from './fighterModel';
+import { buildFighterModel, applyPose, FighterModel, setFlash } from './fighterModel';
 import { tryLoadGlb, updateGlb } from './glbLoader';
 import { toonMat, outlined } from './toon';
 
@@ -35,6 +35,8 @@ export class GameRenderer {
   private beamPool: { body: THREE.Mesh; head: THREE.Mesh; core: THREE.Mesh }[] = [];
   private sparks: Spark[] = [];
   private shake = 0;
+  private punch = 0; // camera punch-in on big hits
+  private parts: { mesh: THREE.Mesh; vx: number; vy: number; life: number; max: number; w: number; len: number; kind: 'streak' | 'dust' }[] = [];
   private camPos = new THREE.Vector3(0, 3, 30);
   private camLook = new THREE.Vector3(0, 2, 0);
   private rot = new Float32Array(BONE_COUNT);
@@ -48,6 +50,8 @@ export class GameRenderer {
   private hitInst: THREE.InstancedMesh;
   private dummy = new THREE.Object3D();
   private joints = makeJoints();
+  private trails: { pts: THREE.Vector3[]; mesh: THREE.Mesh; geo: THREE.BufferGeometry; width: number }[] = [];
+  private trailJoints = makeJoints();
   private clashFx: THREE.Mesh;
   private bgFar: THREE.Group = new THREE.Group();
 
@@ -112,6 +116,24 @@ export class GameRenderer {
       this.scene.remove(m.root);
       this.scene.remove(m.shadow);
     }
+    for (const t of this.trails) this.scene.remove(t.mesh);
+    this.trails = s.fighters.map((f) => {
+      const N = 10;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 3), 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 4), 4));
+      const idx: number[] = [];
+      for (let i = 0; i < N - 1; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+      geo.setIndex(idx);
+      const col = new THREE.Color(looks[f.port]?.accent ?? FIGHTERS[f.char].look.accent);
+      const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({ color: col.lerp(new THREE.Color(1, 1, 1), 0.45), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+      );
+      mesh.frustumCulled = false;
+      this.scene.add(mesh);
+      return { pts: [] as THREE.Vector3[], mesh, geo, width: 0.15 };
+    });
     this.models = s.fighters.map((f) => {
       const base = FIGHTERS[f.char];
       const def = looks[f.port] ? { ...base, look: { ...base.look, ...looks[f.port] } } : base;
@@ -219,12 +241,47 @@ export class GameRenderer {
   }
 
   /** Consume sim events for visual effects. */
-  onEvents(events: SimEvent[]): void {
+  onEvents(events: SimEvent[], s?: GameState): void {
     for (const e of events) {
       switch (e.type) {
-        case EvType.Hit:
-          this.spawnSpark(toM(e.x), toM(e.y), 0.25 + e.a * 0.18, e.a >= 2 ? 0xffe066 : 0xffffff, 10 + e.a * 3);
-          if (e.a >= 2) this.shake = Math.max(this.shake, 0.12 + (e.a - 2) * 0.12);
+        case EvType.Hit: {
+          const x = toM(e.x);
+          const y = toM(e.y);
+          const v = s && e.b >= 0 ? s.fighters[e.b] : undefined;
+          const ang = v && (v.kbx !== 0 || v.kby !== 0) ? Math.atan2(v.kby, v.kbx) : Math.random() * Math.PI * 2;
+          this.spawnSpark(x, y, 0.25 + e.a * 0.18, e.a >= 2 ? 0xffe066 : 0xffffff, 10 + e.a * 3, ang);
+          // Directional impact streaks along the launch direction
+          const n = 4 + e.a * 4;
+          for (let i = 0; i < n; i++) {
+            const a = ang + (Math.random() - 0.5) * (e.a >= 2 ? 0.9 : 1.6);
+            const sp = 6 + Math.random() * 8 + e.a * 4;
+            this.particle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, e.a >= 2 ? 0xfff1a0 : 0xffffff, 0.05, 0.5 + e.a * 0.15, 10 + Math.random() * 8, 'streak');
+          }
+          if (e.a >= 1) this.punch = Math.max(this.punch, 0.35 + e.a * 0.25);
+          if (e.a >= 1) this.shake = Math.max(this.shake, 0.05 + e.a * 0.1);
+          break;
+        }
+        case EvType.Parry:
+          this.spawnSpark(toM(e.x), toM(e.y), 0.9, 0x7fe8ff, 18);
+          for (let i = 0; i < 14; i++) {
+            const a = (i / 14) * Math.PI * 2;
+            this.particle(toM(e.x), toM(e.y), Math.cos(a) * 9, Math.sin(a) * 9, 0x9ff2ff, 0.05, 0.45, 14, 'streak');
+          }
+          this.shake = Math.max(this.shake, 0.15);
+          this.punch = Math.max(this.punch, 0.6);
+          break;
+        case EvType.CounterHit:
+          this.spawnSpark(toM(e.x), toM(e.y), 1.1, 0xff4d4d, 16);
+          break;
+        case EvType.Tech:
+        case EvType.Land:
+        case EvType.Jump:
+        case EvType.Dodge:
+          if (e.type === EvType.Dodge && e.b !== 1) break;
+          for (let i = 0; i < (e.type === EvType.Land ? 5 : 4); i++) {
+            const dir = i % 2 ? 1 : -1;
+            this.particle(toM(e.x) + dir * 0.15, toM(e.y) + 0.08, dir * (1 + Math.random() * 1.5), 0.4 + Math.random() * 0.6, 0xd8d4cc, 0.12, 0.18, 20 + Math.random() * 10, 'dust');
+          }
           break;
         case EvType.Shield:
           this.spawnSpark(toM(e.x), toM(e.y), 0.3, 0x7fd6ff, 8);
@@ -251,7 +308,58 @@ export class GameRenderer {
     }
   }
 
-  private spawnSpark(x: number, y: number, size: number, color: number, life: number): void {
+  private particle(x: number, y: number, vx: number, vy: number, color: number, w: number, len: number, life: number, kind: 'streak' | 'dust'): void {
+    let p = this.parts.find((q) => q.life <= 0 && q.kind === kind);
+    if (!p) {
+      if (this.parts.length > 160) return;
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        depthWrite: false,
+        blending: kind === 'streak' ? THREE.AdditiveBlending : THREE.NormalBlending,
+      });
+      const geo = kind === 'streak' ? new THREE.PlaneGeometry(1, 1) : new THREE.CircleGeometry(1, 10);
+      p = { mesh: new THREE.Mesh(geo, mat), vx: 0, vy: 0, life: 0, max: 1, w, len, kind };
+      p.mesh.frustumCulled = false;
+      this.scene.add(p.mesh);
+      this.parts.push(p);
+    }
+    (p.mesh.material as THREE.MeshBasicMaterial).color.setHex(color);
+    p.mesh.position.set(x, y, 0.9);
+    p.vx = vx;
+    p.vy = vy;
+    p.life = p.max = life;
+    p.w = w;
+    p.len = len;
+    p.mesh.visible = true;
+  }
+
+  private updateParticles(dt: number): void {
+    const step = dt * 60;
+    for (const p of this.parts) {
+      if (p.life <= 0) continue;
+      p.life -= step;
+      const t = 1 - p.life / p.max;
+      p.mesh.position.x += p.vx * dt;
+      p.mesh.position.y += p.vy * dt;
+      const mat = p.mesh.material as THREE.MeshBasicMaterial;
+      if (p.kind === 'streak') {
+        p.vx *= 1 - dt * 6;
+        p.vy *= 1 - dt * 6;
+        p.mesh.rotation.z = Math.atan2(p.vy, p.vx);
+        p.mesh.scale.set(p.len * (1 - t * 0.6), p.w * (1 - t), 1);
+        mat.opacity = 1 - t;
+      } else {
+        p.vx *= 1 - dt * 3;
+        p.vy *= 1 - dt * 2;
+        p.mesh.scale.setScalar(p.w + t * 0.25);
+        mat.opacity = 0.45 * (1 - t);
+      }
+      if (p.life <= 0) p.mesh.visible = false;
+    }
+  }
+
+  private spawnSpark(x: number, y: number, size: number, color: number, life: number, angle = Math.random() * Math.PI): void {
     let sp = this.sparks.find((s) => s.life <= 0);
     if (!sp) sp = this.sparks[0];
     sp.life = sp.max = life;
@@ -260,7 +368,7 @@ export class GameRenderer {
     sp.ring.position.set(x, y, 0.8);
     (sp.mesh.material as THREE.MeshBasicMaterial).color.setHex(color);
     (sp.ring.material as THREE.MeshBasicMaterial).color.setHex(color);
-    sp.mesh.rotation.z = Math.random() * Math.PI;
+    sp.mesh.rotation.z = angle;
     sp.mesh.visible = sp.ring.visible = true;
   }
 
@@ -290,7 +398,14 @@ export class GameRenderer {
       const y = toM(lerp(p.y, f.y, t));
       if (f.hitlag > 0 && f.act === Act.Hitstun) x += Math.sin(this.time * 90) * 0.04;
       model.root.position.set(x, y, 0);
-      model.root.rotation.y = f.facing > 0 ? 0 : Math.PI;
+      // 3/4 view: turn the model a little towards the camera (render-only) so faces and outfits read.
+      const yaw = 0.42;
+      const targetYaw = f.facing > 0 ? -yaw : Math.PI + yaw;
+      const cy = model.root.rotation.y;
+      let dy = targetYaw - cy;
+      while (dy > Math.PI) dy -= Math.PI * 2;
+      while (dy < -Math.PI) dy += Math.PI * 2;
+      model.root.rotation.y = Math.abs(dy) < 0.01 || dt === 0 ? targetYaw : cy + dy * Math.min(1, dt * 30);
 
       fighterAnim(f, def, this.ref);
       let frame = this.ref.frame;
@@ -298,6 +413,7 @@ export class GameRenderer {
       samplePoseF(this.ref.anim, Math.max(0, frame), this.rot, this.rootOff);
       applyPose(model, this.rot, this.rootOff);
       updateGlb(model, this.ref.clip, frame);
+      for (const d of model.dangles) d.update(dt, model.root);
 
       // Invulnerability flicker, aura, shield
       const blink = f.invuln > 0 && f.act !== Act.LedgeHang && Math.floor(this.time * 20) % 2 === 0;
@@ -305,10 +421,19 @@ export class GameRenderer {
       const vanished = !!mvDef?.vanish && f.actFrame >= mvDef.vanish[0] && f.actFrame <= mvDef.vanish[1];
       model.body.visible = (!blink || f.act === Act.Respawn) && !vanished;
       const auraOn = f.ex > 0 || f.act === Act.KiCharge || (f.act === Act.Attack && f.charge > 0) || (cur.freeze > 0 && cur.freezeOwner === f.port);
-      const ma = model.auraMat;
-      ma.opacity = lerp(ma.opacity, auraOn ? 0.28 + Math.sin(this.time * 30) * 0.08 : f.ki >= 300 ? 0.08 : 0, 0.3);
-      model.aura.visible = ma.opacity > 0.01;
-      model.aura.scale.set(0.8 + Math.sin(this.time * 25) * 0.04, 1.35, 0.8);
+      const au = model.auraU;
+      const charging = f.act === Act.KiCharge;
+      const target = auraOn ? (charging ? 1.0 : 0.75) : f.ki >= 300 ? 0.22 : 0;
+      au.uOpacity.value = lerp(au.uOpacity.value, target, Math.min(1, dt * 10));
+      au.uTime.value = this.time * (charging ? 1.6 : 1);
+      model.aura.visible = au.uOpacity.value > 0.01;
+      const pulse = charging ? 1.1 + Math.sin(this.time * 20) * 0.05 : 1;
+      model.aura.scale.set(0.9 * pulse, 1.6 * pulse, 0.9 * pulse);
+      // Hit flash (white on impact) and super glow
+      const hitFlash = f.act === Act.Hitstun && f.hitlag > 0 ? Math.min(1, f.hitlag / 8) * 0.85 : 0;
+      const superGlow = cur.freeze > 0 && cur.freezeOwner === f.port ? 0.35 + Math.sin(this.time * 25) * 0.15 : 0;
+      const parryGlow = f.invuln > 0 && f.act === Act.Attack ? 0.15 : 0;
+      setFlash(model, Math.max(hitFlash, superGlow, parryGlow));
       const shielding = f.act === Act.Shield || f.act === Act.ShieldStun;
       model.shield.visible = shielding;
       if (shielding) {
@@ -338,8 +463,10 @@ export class GameRenderer {
       maxY = Math.max(maxY, y + 1.8);
     }
 
+    this.updateTrails(cur);
     this.renderProjectiles(cur);
     this.updateSparks(dt);
+    this.updateParticles(dt);
     this.updateDebug(cur);
     this.updateCamera(cur, minX, maxX, minY, maxY, dt);
     this.renderer.render(this.scene, this.camera);
@@ -407,6 +534,56 @@ export class GameRenderer {
       this.clashFx.position.set(toM(s.clash.pos), pa ? toM(pa.y) : 1, 0.5);
       this.clashFx.scale.setScalar(0.9 + Math.sin(this.time * 60) * 0.3);
     } else this.clashFx.visible = false;
+  }
+
+  /** Swoosh ribbons that follow each attack's (first) active hitbox. */
+  private updateTrails(s: GameState): void {
+    for (let i = 0; i < this.trails.length; i++) {
+      const tr = this.trails[i];
+      const f = s.fighters[i];
+      let added = false;
+      if (f && f.act === Act.Attack && f.move >= 0 && s.freeze === 0) {
+        const mv = FIGHTERS[f.char].moves[f.move];
+        const h = mv.hitboxes.find((hb) => hb.kind === 0 && f.actFrame >= hb.start - 1 && f.actFrame <= hb.end + 2);
+        if (h) {
+          const j = fighterJoints(f, this.trailJoints);
+          const [px, py] = bonePoint(j, h.bone, h.ox, h.oy);
+          const p = new THREE.Vector3(toM(f.x + px * f.facing), toM(f.y + py), 0.35);
+          const last = tr.pts[tr.pts.length - 1];
+          if (!last || last.distanceToSquared(p) > 0.0004) {
+            tr.pts.push(p);
+            tr.width = toM(h.r) * 1.1;
+            added = true;
+          }
+        }
+      }
+      if (!added && tr.pts.length) tr.pts.shift();
+      while (tr.pts.length > 10) tr.pts.shift();
+      const pos = tr.geo.attributes.position as THREE.BufferAttribute;
+      const col = tr.geo.attributes.color as THREE.BufferAttribute;
+      const n = tr.pts.length;
+      for (let k = 0; k < 10; k++) {
+        const p = tr.pts[Math.min(k, n - 1)];
+        if (!p || n < 2) {
+          pos.setXYZ(k * 2, 0, -100, 0);
+          pos.setXYZ(k * 2 + 1, 0, -100, 0);
+          continue;
+        }
+        const a = tr.pts[Math.max(0, Math.min(k, n - 1) - 1)];
+        const b = tr.pts[Math.min(n - 1, Math.min(k, n - 1) + 1)];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const t = Math.min(k, n - 1) / Math.max(1, n - 1); // 0 = oldest
+        const w = tr.width * t;
+        pos.setXYZ(k * 2, p.x - (dy / len) * w, p.y + (dx / len) * w, p.z);
+        pos.setXYZ(k * 2 + 1, p.x + (dy / len) * w, p.y - (dx / len) * w, p.z);
+        col.setXYZW(k * 2, 1, 1, 1, t * 0.9);
+        col.setXYZW(k * 2 + 1, 1, 1, 1, t * 0.9);
+      }
+      pos.needsUpdate = true;
+      col.needsUpdate = true;
+    }
   }
 
   private updateSparks(dt: number): void {
@@ -522,6 +699,11 @@ export class GameRenderer {
     this.camPos.lerp(target, k);
     this.camLook.lerp(new THREE.Vector3(cx, cy, 0), k);
     this.camera.position.copy(this.camPos);
+    if (this.punch > 0) {
+      // Punch-in: snap the camera slightly towards the action, then ease back out
+      this.camera.position.lerp(this.camLook, this.punch * 0.08);
+      this.punch = Math.max(0, this.punch - dt * 3.5);
+    }
     if (this.shake > 0) {
       this.camera.position.x += (Math.random() - 0.5) * this.shake;
       this.camera.position.y += (Math.random() - 0.5) * this.shake;

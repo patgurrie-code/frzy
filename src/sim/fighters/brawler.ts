@@ -450,7 +450,14 @@ export const KESTREL: FighterDef = {
     scale: 960,
     shieldSize: m(0.75),
   },
-  anims: stateAnims(mb, false),
+  anims: {
+    ...stateAnims(mb, false, { idlePeriod: 26, bob: 0.035 }),
+    victory: mb.anim([
+      { f: 0, r: { RightArm: 175, RightForeArm: 15, LeftArm: 30, LeftForeArm: 120, Spine: 6, Head: -12, RightUpLeg: 10, LeftUpLeg: -10, RightLeg: -10, LeftLeg: -10 }, root: [0, 0] },
+      { f: 12, r: { RightArm: 165, RightForeArm: 40 }, root: [0, 0.04] },
+      { f: 24, r: { RightArm: 178, RightForeArm: 10 }, root: [0, 0] },
+    ], 24, true),
+  },
   moves,
   look: { body: 0xe8553a, trim: 0x23243a, skin: 0xd9a27a, accent: 0x4fd8ff, hair: 0x1b1b24, build: 'lean' },
 };

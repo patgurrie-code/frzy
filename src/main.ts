@@ -129,7 +129,7 @@ window.addEventListener('keydown', (e) => {
 });
 setInterval(() => {
   const m = match ?? attract;
-  if (m) fpsEl.textContent = `${m.fps} fps`;
+  if (m) fpsEl.textContent = `${m.fps} fps · ${renderer.renderer.info.render.calls} draws`;
 }, 500);
 
 startAttract();

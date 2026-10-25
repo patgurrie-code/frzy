@@ -181,6 +181,8 @@ export interface FighterStats {
   fastFall: number;
   scale: number; // per-mille skeleton scale
   shieldSize: number; // FX radius at full
+  /** Balance knob: damage dealt in percent (default 100). */
+  power?: number;
 }
 
 export interface FighterAnims {
@@ -207,6 +209,7 @@ export interface FighterAnims {
   victory: Anim;
   beam: Anim;
   charge: Anim;
+  knockdown: Anim;
 }
 
 export interface FighterLook {
