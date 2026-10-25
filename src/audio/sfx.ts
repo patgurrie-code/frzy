@@ -146,6 +146,28 @@ export class Sfx {
         case EvType.Dodge:
           if (e.b === 1) this.burst(0.12, 4000, 0.1, 1, 'highpass');
           break;
+        case EvType.Parry:
+          this.tone(1400, 0.25, 'triangle', 0.25, 2200);
+          this.tone(2100, 0.3, 'sine', 0.15, undefined, 0.03);
+          this.burst(0.1, 5000, 0.2, 3, 'highpass');
+          break;
+        case EvType.CounterHit:
+          this.tone(260, 0.2, 'sawtooth', 0.2, 120);
+          break;
+        case EvType.Punish:
+          this.tone(180, 0.25, 'square', 0.18, 80);
+          break;
+        case EvType.Tech:
+          this.burst(0.12, 3000, 0.15, 1.5, 'highpass');
+          this.tone(600, 0.08, 'triangle', 0.1, 900);
+          break;
+        case EvType.FirstHit:
+          this.tone(880, 0.1, 'square', 0.12);
+          this.tone(1320, 0.18, 'square', 0.12, undefined, 0.08);
+          break;
+        case EvType.Cancel:
+          this.tone(500, 0.12, 'sawtooth', 0.12, 1500);
+          break;
         case EvType.Respawn:
           this.tone(700, 0.3, 'sine', 0.12, 1400);
           break;

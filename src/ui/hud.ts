@@ -28,6 +28,7 @@ export class Hud {
   private banner: HTMLElement;
   private bannerTimer = 0;
   private training: HTMLElement;
+  private calls: HTMLElement;
   private dispHealth: number[] = [];
   private names: string[] = [];
 
@@ -35,7 +36,8 @@ export class Hud {
     this.root = el('<div class="hud"></div>');
     this.banner = el('<div class="banner"></div>');
     this.training = el('<div class="training-panel hidden"></div>');
-    parent.append(this.root, this.banner, this.training);
+    this.calls = el('<div class="callouts"><div class="co-side left"></div><div class="co-side right"></div></div>');
+    parent.append(this.root, this.calls, this.banner, this.training);
   }
 
   setup(s: GameState, playerLabels: string[], nameOverrides: (string | undefined)[] = [], looks: (Partial<FighterLook> | undefined)[] = []): void {
@@ -91,9 +93,36 @@ export class Hud {
     this.bannerTimer = frames;
   }
 
+  /** Fighting-game style callout text that pops on the player's side of the screen. */
+  callout(port: number, text: string, cls = ''): void {
+    const side = this.calls.children[port % 2] as HTMLElement;
+    const c = el(`<div class="callout ${cls}">${text}</div>`);
+    side.prepend(c);
+    while (side.children.length > 3) side.lastElementChild!.remove();
+    window.setTimeout(() => c.remove(), 1400);
+  }
+
   onEvents(s: GameState, events: SimEvent[]): void {
     for (const e of events) {
       switch (e.type) {
+        case EvType.Parry:
+          this.callout(e.a, 'PARRY!', 'c-parry');
+          break;
+        case EvType.CounterHit:
+          this.callout(e.a, 'COUNTER HIT', 'c-counter');
+          break;
+        case EvType.Punish:
+          this.callout(e.a, 'PUNISH!', 'c-punish');
+          break;
+        case EvType.Tech:
+          this.callout(e.a, 'TECH', 'c-tech');
+          break;
+        case EvType.FirstHit:
+          this.callout(e.a, 'FIRST ATTACK', 'c-first');
+          break;
+        case EvType.Cancel:
+          this.callout(e.a, 'CANCEL', 'c-cancel');
+          break;
         case EvType.RoundStart:
           this.showBanner(
             s.mode === Mode.Versus
@@ -202,6 +231,7 @@ export class Hud {
 
   clear(): void {
     this.root.innerHTML = '';
+    for (const c of Array.from(this.calls.children)) c.innerHTML = '';
     this.banner.className = 'banner';
     this.training.classList.add('hidden');
   }

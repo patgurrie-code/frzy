@@ -133,3 +133,49 @@ describe('special mechanics', () => {
     }
   });
 });
+
+describe('defence & combo systems', () => {
+  it('parry: guarding just before a hit takes no damage and freezes the attacker', () => {
+    const g = game([0, 1]);
+    g.fighters[0].x = 0;
+    g.fighters[1].x = 6000;
+    hold(g, [IN_ATTACK, 0], 1);
+    hold(g, [0, IN_GUARD], 1); // shield goes up right before the jab's active frames
+    let parried = false;
+    for (let i = 0; i < 20; i++) {
+      step(g, [0, IN_GUARD]);
+      if (g.events.some((e) => e.type === 21 /* EvType.Parry */)) parried = true;
+    }
+    expect(parried).toBe(true);
+    expect(g.fighters[1].damage).toBe(0);
+  });
+
+  it('a normal that hits can be cancelled into a special', () => {
+    const g = game([0, 1]);
+    g.fighters[0].x = 0;
+    g.fighters[1].x = 6000;
+    hold(g, [IN_ATTACK, 0], 1);
+    let cancelled = false;
+    for (let i = 0; i < 12; i++) {
+      step(g, [i === 5 ? IN_SPECIAL : 0, 0]);
+      if (g.fighters[0].move === Mv.NSpec) cancelled = true;
+    }
+    expect(cancelled).toBe(true);
+  });
+
+  it('tech: guard before landing from a launch recovers instantly', () => {
+    const g = game([0, 1]);
+    const f = g.fighters[1];
+    f.x = 0;
+    f.y = 4000;
+    f.grounded = 0;
+    f.platform = -1;
+    f.act = Act.Hitstun;
+    f.hitstun = 40;
+    f.vy = -3000;
+    hold(g, [0, IN_GUARD], 1);
+    hold(g, [0, 0], 3);
+    expect(f.act === Act.Land || f.act === Act.Idle).toBe(true);
+    expect(f.invuln).toBeGreaterThan(0);
+  });
+});

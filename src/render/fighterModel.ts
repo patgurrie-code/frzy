@@ -17,8 +17,10 @@ export interface FighterModel {
   bones: THREE.Bone[]; // indexed like BONES
   /** Optional GLB replacing the placeholder. */
   glb?: { scene: THREE.Object3D; bones: (THREE.Bone | null)[]; mixer?: THREE.AnimationMixer; clips: Map<string, THREE.AnimationClip> };
-  auraMat: THREE.MeshBasicMaterial;
+  auraU: { uColor: { value: THREE.Color }; uOpacity: { value: number }; uTime: { value: number } };
   aura: THREE.Mesh;
+  /** Per-model toon materials + their base emissive (hit flash / glow). */
+  mats: { m: THREE.MeshToonMaterial; base: THREE.Color }[];
   shield: THREE.Mesh;
   shadow: THREE.Mesh;
   /** Secondary-motion chains (scarves, capes, hair). Render only. */
@@ -51,11 +53,67 @@ export function buildFighterModel(def: FighterDef): FighterModel {
   buildDesign(def.id, kit, look);
   kit.build();
 
-  // Ki aura (EX / super / charging)
-  const auraMat = new THREE.MeshBasicMaterial({ color: look.accent, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
-  const aura = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), auraMat);
-  aura.scale.set(0.8, 1.35, 0.8);
-  aura.position.y = 0.95;
+  // Per-model material instances (so one fighter can flash/glow without affecting others)
+  const mats: { m: THREE.MeshToonMaterial; base: THREE.Color }[] = [];
+  const cloned = new Map<THREE.Material, THREE.Material>();
+  scaled.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const src = mesh.material as THREE.Material;
+    if (!(src as THREE.MeshToonMaterial).isMeshToonMaterial) return;
+    let c = cloned.get(src);
+    if (!c) {
+      const tm = (src as THREE.MeshToonMaterial).clone();
+      tm.onBeforeCompile = src.onBeforeCompile;
+      tm.customProgramCacheKey = src.customProgramCacheKey;
+      mats.push({ m: tm, base: tm.emissive.clone() });
+      cloned.set(src, tm);
+      c = tm;
+    }
+    mesh.material = c;
+  });
+
+  // Ki aura: flame shader (fresnel glow + rising noise), Dragon Ball style
+  const auraU = { uColor: { value: new THREE.Color(look.accent) }, uOpacity: { value: 0 }, uTime: { value: 0 } };
+  const auraMat = new THREE.ShaderMaterial({
+    uniforms: auraU,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    vertexShader: `
+      uniform float uTime;
+      varying vec3 vN; varying vec3 vV; varying float vY;
+      void main() {
+        vec3 p = position;
+        float h = clamp(p.y * 0.5 + 0.5, 0.0, 1.0);
+        float ang = atan(p.z, p.x);
+        // licking flames: stretch the top, wobble sideways
+        float flame = sin(ang * 5.0 + uTime * 9.0) * 0.5 + sin(ang * 9.0 - uTime * 13.0) * 0.5;
+        p.y += h * h * (0.35 + flame * 0.18);
+        p.xz *= 1.0 + h * flame * 0.12 - h * h * 0.35;
+        vY = h;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uOpacity; uniform float uTime;
+      varying vec3 vN; varying vec3 vV; varying float vY;
+      void main() {
+        float fr = pow(1.0 - abs(dot(vN, vV)), 1.6);
+        float bands = 0.6 + 0.4 * sin(vY * 22.0 - uTime * 14.0);
+        float a = fr * bands * (1.0 - vY * 0.55) * uOpacity;
+        vec3 col = mix(uColor, vec3(1.0), fr * 0.35);
+        gl_FragColor = vec4(col * a * 2.2, a);
+      }`,
+  });
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(0.62, 24, 16), auraMat);
+  aura.scale.set(0.9, 1.6, 0.9);
+  aura.position.y = 0.92;
+  aura.frustumCulled = false;
+  aura.renderOrder = 5;
   scaled.add(aura);
 
   const shield = new THREE.Mesh(
@@ -71,7 +129,7 @@ export function buildFighterModel(def: FighterDef): FighterModel {
   );
   shadow.rotation.x = -Math.PI / 2;
 
-  return { root, body: scaled, bones, auraMat, aura, shield, shadow, dangles: kit.dangles };
+  return { root, body: scaled, bones, auraU, aura, mats, shield, shadow, dangles: kit.dangles };
 }
 
 /** Apply a float pose (degrees per bone, root offset in FX) to the placeholder skeleton. */
@@ -82,4 +140,10 @@ export function applyPose(model: FighterModel, rot: Float32Array, root: Float32A
   const s = model.body.scale.x;
   bones[B.Hips].position.x = BONES[0].x + root[0] / FX / s;
   bones[B.Hips].position.y = BONES[0].y + root[1] / FX / s;
+}
+
+const WHITE = new THREE.Color(1, 1, 1);
+/** Blend every material's emissive toward white (amount 0..1) — hit flash, super glow. */
+export function setFlash(model: FighterModel, amount: number, tint: THREE.Color = WHITE): void {
+  for (const { m, base } of model.mats) m.emissive.copy(base).lerp(tint, amount);
 }

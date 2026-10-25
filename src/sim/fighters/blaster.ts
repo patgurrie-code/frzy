@@ -448,6 +448,7 @@ export const TORVAL: FighterDef = {
     fastFall: m(0.32),
     scale: 1120,
     shieldSize: m(0.9),
+    power: 96,
   },
   anims: stateAnims(mb, true),
   moves,

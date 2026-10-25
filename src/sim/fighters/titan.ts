@@ -273,6 +273,7 @@ export const BRAKKA: FighterDef = {
     fastFall: m(0.34),
     scale: 1220,
     shieldSize: m(1.0),
+    power: 90,
   },
   anims: stateAnims(mb, true),
   moves,

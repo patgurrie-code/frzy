@@ -76,6 +76,11 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
 
   const tgt = target(s, me);
 
+  // Tech: tap Guard just before landing while launched
+  if (me.act === Act.Hitstun && !me.grounded && me.vy + me.kby < 0 && me.y < M && me.y > -M && level >= 3) {
+    if (rand(s, port, 20, 100) < level * 10) return mem.prev & IN_GUARD ? 0 : IN_GUARD;
+  }
+
   // Holding someone: throw toward the nearest blast zone (or up when at high percent)
   if (me.act === Act.Grabbing && tgt) {
     if (me.actFrame < 10) return 0;
@@ -116,6 +121,47 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
   }
 
   if (!tgt) return 0;
+
+  // Combos: keep pressing after a confirmed hit — jab chains, and special-cancel tilts / dash attacks
+  if (me.act === Act.Attack && me.move >= 0 && level >= 3) {
+    let hit = 0;
+    for (const g of me.hitGroups) hit |= g;
+    if (hit) {
+      if ((me.move === Mv.Jab || me.move === Mv.Jab2) && rand(s, port, 21, 100) < 40 + level * 7) return press(mem, IN_ATTACK);
+      const cancellable = me.move === Mv.FTilt || me.move === Mv.DTilt || me.move === Mv.UTilt || me.move === Mv.Jab3 || me.move === Mv.DashAttack;
+      if (cancellable && level >= 5 && rand(s, port, 22, 100) < level * 8) {
+        if (me.ki >= 300 && level >= 7) return press(mem, IN_ATTACK | IN_SPECIAL);
+        const ex = me.ki >= 100 && level >= 6 ? IN_SMASH : 0;
+        return press(mem, IN_SPECIAL | ex | (tgt.x > me.x ? IN_RIGHT : IN_LEFT));
+      }
+    }
+  }
+
+  // Parry: raise guard 1-3 frames before the opponent's first active frame (needs level, reads frame data)
+  if (tgt.act === Act.Attack && tgt.move >= 0 && me.grounded && level >= 4) {
+    const tm = FIGHTERS[tgt.char].moves[tgt.move];
+    let first = 999;
+    for (const hb of tm.hitboxes) first = Math.min(first, hb.start);
+    const until = first - tgt.actFrame;
+    const close = abs(tgt.x - me.x) < 2.6 * M && abs(tgt.y - me.y) < 2 * M;
+    if (close && until >= 1 && until <= 3 && rand(s, port, 23, 100) < (level - 3) * 9) {
+      mem.hold = IN_GUARD;
+      mem.holdUntil = s.frame + 8;
+      return mem.prev & IN_GUARD ? 0 : IN_GUARD;
+    }
+  }
+
+  // Punish: opponent is recovering from a whiffed move within reach
+  if (tgt.act === Act.Attack && tgt.move >= 0 && me.grounded && level >= 3 && (me.act === Act.Idle || me.act === Act.Walk || me.act === Act.Shield || me.act === Act.Run)) {
+    const tm = FIGHTERS[tgt.char].moves[tgt.move];
+    let last = 0;
+    for (const hb of tm.hitboxes) last = Math.max(last, hb.end);
+    const recovering = last > 0 && tgt.actFrame > last && tm.length - tgt.actFrame > 8;
+    if (recovering && abs(tgt.x - me.x) < 2 * M && abs(tgt.y - me.y) < M && rand(s, port, 24, 100) < 30 + level * 7) {
+      const dir = tgt.x > me.x ? IN_RIGHT : IN_LEFT;
+      return press(mem, level >= 6 ? dir | IN_SMASH : IN_ATTACK);
+    }
+  }
   const dx = tgt.x - me.x;
   const dy = tgt.y - me.y;
   const adx = abs(dx);
@@ -126,7 +172,7 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
 
   // Defence: shield when an opponent is attacking up close
   const threat = tgt.act === Act.Attack && adx < 2.4 * M && abs(dy) < 2 * M;
-  if (threat && me.grounded && rand(s, port, 5, 100) < 6 + level * 7) {
+  if (threat && me.grounded && rand(s, port, 5, 100) < 4 + level * 4) {
     mem.hold = IN_GUARD;
     mem.holdUntil = s.frame + 10 + rand(s, port, 6, 12);
     return IN_GUARD;
@@ -144,7 +190,7 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
   // Super when close with full meter
   if (me.ki >= 300 && adx < 3 * M && abs(dy) < M && rand(s, port, 8, 4) === 0) return press(mem, IN_ATTACK | IN_SPECIAL);
 
-  const REACH: Record<string, number> = { torval: 1.5, sera: 2.1, brakka: 1.6, vesha: 1.1 };
+  const REACH: Record<string, number> = { torval: 1.5, sera: 1.3, brakka: 1.6, vesha: 1.1 };
   const reach = (REACH[def.id] ?? 1.25) * M;
   const actionable = me.act === Act.Idle || me.act === Act.Walk || me.act === Act.Run || me.act === Act.Dash || me.act === Act.Air || me.act === Act.Crouch;
   if (!actionable) return mem.prev & (IN_LEFT | IN_RIGHT);

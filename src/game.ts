@@ -138,7 +138,7 @@ export class Match {
     this.input.endFrame();
     const ev = this.state.events;
     if (ev.length) {
-      this.renderer.onEvents(ev);
+      this.renderer.onEvents(ev, this.state);
       if (!this.setup.quiet) {
         this.hud.onEvents(this.state, ev);
         this.sfx.play(ev);

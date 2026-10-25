@@ -294,7 +294,7 @@ export const SERA: FighterDef = {
   description: 'Spear knight. Longest reach in the roster; keep foes at the tip.',
   superName: 'Thousand Lances',
   stats: {
-    weight: 98,
+    weight: 100,
     walk: m(0.055),
     run: m(0.12),
     dash: m(0.13),
@@ -313,6 +313,7 @@ export const SERA: FighterDef = {
     fastFall: m(0.3),
     scale: 1010,
     shieldSize: m(0.8),
+    power: 112,
   },
   anims: stateAnims(mb, false),
   moves,

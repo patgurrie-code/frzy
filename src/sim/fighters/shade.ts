@@ -302,7 +302,7 @@ export const VESHA: FighterDef = {
   description: 'Shadow ninja. Fastest in the roster, teleports, counters — but launches easily.',
   superName: 'Eclipse: Thousand Cuts',
   stats: {
-    weight: 72,
+    weight: 78,
     walk: m(0.07),
     run: m(0.155),
     dash: m(0.17),
@@ -321,6 +321,7 @@ export const VESHA: FighterDef = {
     fastFall: m(0.33),
     scale: 930,
     shieldSize: m(0.7),
+    power: 118,
   },
   anims: stateAnims(mb, false),
   moves,

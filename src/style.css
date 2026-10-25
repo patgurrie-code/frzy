@@ -238,3 +238,20 @@ button.ch-card.done { border-color: var(--accent); }
 .sc-kicker { letter-spacing: 8px; color: var(--accent); }
 .sc-title { font-family: var(--font-display); font-size: 90px; letter-spacing: 4px; }
 .sc-end { color: var(--muted); padding: 10px; }
+
+/* ---------- Callouts ---------- */
+.callouts { position: absolute; inset: 0; pointer-events: none; }
+.co-side { position: absolute; top: 150px; display: flex; flex-direction: column; gap: 4px; }
+.co-side.left { left: 3%; align-items: flex-start; }
+.co-side.right { right: 3%; align-items: flex-end; }
+.hud-platform ~ .callouts .co-side { top: 90px; }
+.callout { font-family: var(--font-display); font-size: 40px; letter-spacing: 2px; line-height: 1; padding: 2px 14px; transform: skewX(-12deg);
+  color: #fff; text-shadow: 0 3px 0 #000, 0 0 12px #000a; animation: calloutIn .18s cubic-bezier(.2,1.8,.4,1) both, calloutOut .3s 1.1s forwards; }
+.callout.c-parry { color: #9ff2ff; font-size: 52px; text-shadow: 0 3px 0 #000, 0 0 18px #3fd0ff; }
+.callout.c-counter { color: #ff6464; }
+.callout.c-punish { color: #ffcf3a; }
+.callout.c-tech { color: #cfd6ff; font-size: 30px; }
+.callout.c-first { color: #fff; background: linear-gradient(90deg, #e5452b, transparent); font-size: 30px; }
+.callout.c-cancel { color: #b7a6ff; font-size: 28px; }
+@keyframes calloutIn { from { opacity: 0; transform: skewX(-12deg) scale(2); } }
+@keyframes calloutOut { to { opacity: 0; transform: skewX(-12deg) translateY(-14px); } }
