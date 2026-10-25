@@ -290,7 +290,14 @@ export class GameRenderer {
       const y = toM(lerp(p.y, f.y, t));
       if (f.hitlag > 0 && f.act === Act.Hitstun) x += Math.sin(this.time * 90) * 0.04;
       model.root.position.set(x, y, 0);
-      model.root.rotation.y = f.facing > 0 ? 0 : Math.PI;
+      // 3/4 view: turn the model a little towards the camera (render-only) so faces and outfits read.
+      const yaw = 0.42;
+      const targetYaw = f.facing > 0 ? -yaw : Math.PI + yaw;
+      const cy = model.root.rotation.y;
+      let dy = targetYaw - cy;
+      while (dy > Math.PI) dy -= Math.PI * 2;
+      while (dy < -Math.PI) dy += Math.PI * 2;
+      model.root.rotation.y = Math.abs(dy) < 0.01 || dt === 0 ? targetYaw : cy + dy * Math.min(1, dt * 30);
 
       fighterAnim(f, def, this.ref);
       let frame = this.ref.frame;
@@ -298,6 +305,7 @@ export class GameRenderer {
       samplePoseF(this.ref.anim, Math.max(0, frame), this.rot, this.rootOff);
       applyPose(model, this.rot, this.rootOff);
       updateGlb(model, this.ref.clip, frame);
+      for (const d of model.dangles) d.update(dt, model.root);
 
       // Invulnerability flicker, aura, shield
       const blink = f.invuln > 0 && f.act !== Act.LedgeHang && Math.floor(this.time * 20) % 2 === 0;
@@ -306,7 +314,7 @@ export class GameRenderer {
       model.body.visible = (!blink || f.act === Act.Respawn) && !vanished;
       const auraOn = f.ex > 0 || f.act === Act.KiCharge || (f.act === Act.Attack && f.charge > 0) || (cur.freeze > 0 && cur.freezeOwner === f.port);
       const ma = model.auraMat;
-      ma.opacity = lerp(ma.opacity, auraOn ? 0.28 + Math.sin(this.time * 30) * 0.08 : f.ki >= 300 ? 0.08 : 0, 0.3);
+      ma.opacity = lerp(ma.opacity, auraOn ? 0.28 + Math.sin(this.time * 30) * 0.08 : f.ki >= 300 ? 0.035 : 0, 0.3);
       model.aura.visible = ma.opacity > 0.01;
       model.aura.scale.set(0.8 + Math.sin(this.time * 25) * 0.04, 1.35, 0.8);
       const shielding = f.act === Act.Shield || f.act === Act.ShieldStun;
