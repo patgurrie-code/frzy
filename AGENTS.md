@@ -80,6 +80,15 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
   **counter hit** (hit during opponent's startup: +20% dmg, +8 hitstun) and **punish** (during recovery: +4 hitstun);
   knockdowns on hard landings in both modes (Versus: invulnerable while down). Events: Parry, Tech, CounterHit, Punish,
   FirstHit, Cancel → HUD callouts + SFX.
+- Versus depth: **high/low** — Guard+Down = crouch guard (`guardLow`); `HitboxDef.level` 'low' must be crouch-blocked,
+  'overhead' stand-blocked (defaults: aerials vs grounded = overhead, DTilt/DSmash = low; marked: Kestrel/Vesha dash attacks
+  low, Torval DTilt low, Brakka Jab3 + Sera DSpec overhead). Projectiles/parries ignore levels. In Versus, Down in shield =
+  crouch guard (no spot dodge). **Throw escape**: Grab/Attack within 8 frames of a normal grab (`throwTech`); command grabs
+  can't be escaped. **Wall bounce**: once per combo when hitstun knockback ≥0.12 m/f hits a wall (`wallBounced`).
+  **Launcher**: Versus UTilt on a grounded victim → straight-up launch, 44f hitstun (every UTilt has a forward chest-height
+  launcher hitbox so it reaches at Versus spacing). **Air combos**: aerial on airborne victim → carried (45% kb, 18–30f
+  hitstun) with juggle decay after 6 hits. **Burst** (`Mv.Burst`, `burstMove()` in common.ts): Guard+Special in hitstun,
+  1 bar, once per round in Versus, invulnerable shockwave. Events: WrongGuard, ThrowTech, WallBounce, Burst, Launch.
 - Balance knob: `FighterStats.power` (% damage dealt). Current: Torval 96, Sera 112, Vesha 118 (weight 78), Brakka 90.
 - Beam clash: two opposing beams' heads cross → both casters locked, mash Attack/Special; push ±1000; winner's beam continues with
   +50% power, loser's beam vanishes.
@@ -107,6 +116,11 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 - 4 BRAKKA `titan.ts`: giant grappler (135), armour on many moves. Boulder Toss / Avalanche Grab (command grab → Mountain
   Driver) / Rising Bull (armoured) / Seismic Stomp. Super "Titanfall".
 - CPU reach per fighter id in `src/ai/cpu.ts` (REACH table) — add new fighters there.
+- Easing (`anim.ts`): each key's `ease` shapes the segment that starts at it (Linear / Snap = ease-out cubic / Smooth =
+  smoothstep), integer maths in the sim. `MoveBuilder.move` auto-assigns: the segment arriving at the first active frame =
+  Snap, wind-ups and recoveries = Smooth (override per key with `ease`). Loops default to Smooth.
+- Hit reactions: `hitHigh/hitMid/hitLow` chosen from where the hit landed (`FighterState.hitHeight`); tumble when launched.
+- `intro` anim per fighter (render-only, played during the Intro phase).
 - Animation personality: `stateAnims(mb, heavy, style)` (idlePeriod, bob, ninjaRun); each fighter overrides `victory`.
   `knockdown` anim is used for Land with landLag ≥ 20.
 
@@ -120,6 +134,8 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 - `toon.ts`: toon materials; characters use a fresnel rim light (`toonMat(color, emissive, rim)`); stage uses rim 0.
 - `fighterModel.ts`: builds bones + design, clones materials per model (`setFlash` = white hit flash / super glow),
   flame-shader ki aura (`auraU` uniforms). Renderer turns models 0.42 rad toward the camera (3/4 view, render only).
+- Expressions: `body()` builds face groups (normal / hurt / shout / blink); renderer picks one per state with random blinks.
+- Torso twist (render-only, `applyPose`): Spine2/Hips/Head rotate about Y from arm/leg extension so strikes read in 3D.
 - Renderer FX: directional hit sparks + streak particles along the launch angle, dust puffs (land/jump/dodge/tech), camera
   punch-in on hits, swoosh ribbons following the first active hitbox, hit flash. FPS overlay (` key) shows draw calls.
 - GLB models still replace the procedural design via `glbLoader.ts` (it hides non-bone children of the bones).

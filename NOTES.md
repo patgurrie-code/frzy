@@ -17,6 +17,9 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
   hit flash, swoosh trails), animation personality (idle rhythm, victory poses, ninja run, knockdown), parry / tech /
   cancels / counter-hit / punish with callouts, impact FX, smarter CPU (combos, parries from frame data, techs, punishes),
   balance power stat. 44 unit + 5 e2e tests passing.
+- 2026-10-25 (Claude Code): PR #3 merged. Did (1) animation pass: eased keyframes, render torso twist, hit reactions by
+  height, facial expressions + blinks, intro poses; (2) Versus depth: high/low/overhead blocking, throw escapes, wall
+  bounces, launchers + air combos (juggle decay), burst; CPU uses all of them. 50 unit + 5 e2e tests passing.
 
 ## Done (character & gameplay pass)
 - See AGENTS.md "Character art" and "Gameplay decisions → Defence/combo systems".
@@ -60,8 +63,9 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 - Performance target (60 fps integrated GPU) not yet measured on real hardware — headless runs use SwiftShader.
 
 ## Next (candidates)
-0. Character polish: per-move animation pass, facial expressions (hurt/shout), more costume detail (alt colours/skins),
-   hitstun reactions by hit height, intro animations before ROUND 1.
+0. Remaining from the agreed plan: (3) real GLB models via the loader, (4) playtest-driven tuning rounds with the user.
+   Character polish still open: hand-tuned keyframes per move (easing helped but poses are still simple), alt costumes,
+   head tracking, single skinned mesh instead of rigid parts.
 1. Story polish (user + Codex): art/portraits, more scenes, branching choices, story-specific stages, music, unlock rewards
    ("A new challenger approaches" after chapters), arcade ladders per fighter.
 2. Balance/tuning pass with hitbox view; per-move SFX/VFX variety; tech on landing; ledge trump.
