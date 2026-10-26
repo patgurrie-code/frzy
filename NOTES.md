@@ -3,6 +3,28 @@
 Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under "Log".
 
 ## Log
+- 2026-10-26 (OpenAI Codex), step 3: appended follow-through/overshoot/settle tails to the full move roster without
+  changing active integer poses or timings; regression fixture captures origin/main b0c4adc signatures. Each fighter's
+  jab has 1f arm anticipation. Locomotion cycles retimed per speed/scale; walk arm swing, progressive jump squash,
+  apex extension and landing dip/settle. PROTOCOL 2 → 3 (animation affects hurtboxes). Light/medium/heavy normal
+  hitlag now 5/9/16f for 3/10/23 damage, vs 6/11/19f; knockback/hitstun/stun/recovery timing retained.
+  Pooled ribbon vectors, reduced repeated Dangle matrix traversals, batched static stage/background meshes by material.
+  Final review caught extended EX beam animations settling before their longer cast ended; makeEx now extends
+  the firing hold/recovery tail with the move duration. Active/release samples remain locked to the baseline.
+  Validation: 82 unit tests, TypeScript, production build and all 6 e2e tests pass (incl. two-browser online checksums).
+  Visual check: neutral training scene renders correctly in system Chromium 154, 1280×720, pixel ratio 1.
+  Performance procedure: scripts/measure-render.mjs, production preview, 15 warm-up + 75 measured rAF intervals;
+  software ANGLE/SwiftShader, one browser at a time. Baseline b0c4adc: 7.36 fps, median 125.9 ms, p95 329.9 ms,
+  211–217 draws, 55,720–57,544 triangles. Final: 7.58 fps, median 125.4 ms, p95 216.7 ms, 180–183 draws,
+  56,740–57,652 triangles. ~34 fewer peak draws (~16%); fps difference is too noisy to claim a speedup.
+  Slightly more triangles are submitted because merged background meshes cull as a batch. No integrated-GPU 60 fps claim.
+  Next: user playtest of new movement/hitlag; tune special-specific poses, dynamic foot planting and imported GLB clip
+  transitions (no real GLBs in this repo to validate); profile actual integrated GPU and four-player stress scenes.
+  Work is split into three commits. Automatic review initially blocked push as unverified-origin code egress.
+  Before retrying, GitHub connector verified origin matches the public patgurrie-code/frzy repository, owned by the
+  connected account patgurrie-code, with admin/push permission; the pasted request explicitly asks for commit + push.
+  Retry was also rejected: automatic review still requires explicit publication approval. Requested approval for
+  origin HEAD:codex/fray-smoothness. No remote writes have occurred; all implementation is committed locally.
 - 2026-10-26 (OpenAI Codex), step 2: 8f recovery buffer, buffered Guard taps, smoother walk/dash/run/turnaround,
   momentum through take-off/air jumps and gradual excess-speed air drift. PROTOCOL 1 → 2. Online stalls retain
   keyboard latches; render previous state now comes from corrected rollback history. Blur clears stale latches.
@@ -72,8 +94,8 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 - Balance: CPU round robin (level 6, versus+platform): Kestrel 7, Torval 6, Sera 8, Vesha 9, Brakka 10.
 - Online: no TURN server (strict NATs fall back to the WebSocket relay — works, slightly higher latency). Online is 1v1 only;
   4-player / 2×2 online, spectators, ranked and reconnect-after-drop are not done. Not yet tested across real internet.
-- Move animations are still the original keyframes; the new models make stiff poses more visible — a per-move polish pass
-  (anticipation/follow-through, smears) is the next big character win.
+- Every move now has a shared recovery/overshoot/settle tail; all jabs gain anticipation. Active attack trajectories
+  remain the original data. Per-special hand-tuned anticipation/follow-through and true foot-lock IK remain open.
 - Story portraits are CSS placeholder busts; story has one stage only and no music. Locked chapter cards show the hero.
 - Story fights always use Keyboard 1 for the player (no device picker yet).
 - Placeholder poses are approximate (feet can float/clip slightly). Tune per move when real models arrive.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createGame, step } from '../src/sim/sim';
+import { createGame, step, applyHit } from '../src/sim/sim';
 import { Act, Mode, Phase, saveState, checksum } from '../src/sim/state';
 import { FIGHTERS } from '../src/sim/fighters';
 import { IN_ATTACK, IN_GUARD, IN_JUMP, IN_LEFT, IN_RIGHT } from '../src/sim/input';
@@ -93,4 +93,18 @@ it('keyboard latches short taps until consumed and clears them on blur', () => {
   expect(input.keyboardMask(0)).toBe(0);
   key('keydown'); target.dispatchEvent(new Event('blur'));
   expect(input.keyboardMask(0)).toBe(0);
+});
+
+it('light hits release sooner while heavy hits retain a longer impact freeze', () => {
+  const lags: number[] = [];
+  for (const dmg of [3, 10, 23]) {
+    const s = createGame({ mode: Mode.Versus, stage: 0, chars: [0, 1] });
+    s.phase = Phase.Fight;
+    const [a, v] = s.fighters;
+    applyHit(s, a, v, { ...FIGHTERS[0].moves[0].hitboxes[0], dmg }, 100, 1, v.x, 10000, false);
+    lags.push(v.hitlag);
+    expect(v.hitlag).toBe(a.hitlag);
+    expect(v.hitstun).toBeGreaterThan(0);
+  }
+  expect(lags).toEqual([5, 9, 16]);
 });

@@ -78,8 +78,7 @@ test('keyboard player moves and training frame-step works', async ({ page }) => 
   await page.keyboard.down('KeyJ');
   await page.waitForTimeout(100);
   await page.keyboard.up('KeyJ');
-  await page.waitForTimeout(500);
-  expect(await frame(page)).toBeGreaterThan(f + 10);
+  await expect.poll(() => frame(page)).toBeGreaterThan(f + 10);
   expect(errors).toEqual([]);
 });
 

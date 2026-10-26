@@ -2,7 +2,7 @@
 import { compileAnim, KeySpec, Anim, Ease } from '../anim';
 import { m } from '../fixed';
 import { HitboxDef, HitKind, MoveDef, ProjectileDef, ProjKind, Sfx, FighterAnims } from '../defs';
-import { B } from '../skeleton';
+import { B, BONE_COUNT } from '../skeleton';
 
 export { B, Sfx, HitKind, ProjKind, m };
 
@@ -138,7 +138,30 @@ export class MoveBuilder {
   constructor(readonly stance: KeySpec) {}
 
   move(name: string, length: number, keys: KeySpec[], hitboxes: HitboxDef[], opts: MoveOpts = {}): MoveDef {
-    return { name, anim: compileAnim(this.stance, autoEase(keys, hitboxes, opts), length), length, hitboxes, ...opts };
+    const anim = compileAnim(this.stance, autoEase(keys, hitboxes, opts), length);
+    // Sparse empty keys inherit the strike. Add a real follow-through/settle tail after all authored
+    // keys AND every active/release frame; existing wind-ups and active poses remain exact.
+    let hold = anim.keys[anim.keys.length - 1].f;
+    for (const h of hitboxes) hold = Math.max(hold, h.end);
+    if (opts.projectile) hold = Math.max(hold, opts.projectile.f);
+    if (opts.throwRelease) hold = Math.max(hold, opts.throwRelease.f);
+    if (hold < length) {
+      const last = anim.keys[anim.keys.length - 1];
+      if (hold > last.f) anim.keys.push({ ...last, f: hold, rot: last.rot.slice() });
+      const rest = compileAnim(this.stance, [{ f: 0 }], 1).keys[0];
+      const settle = rest.rot.slice();
+      const over = rest.rot.slice();
+      for (let b = 0; b < BONE_COUNT; b++) {
+        // Settle to the nearest equivalent angle, preserving authored spins instead of unwinding them.
+        settle[b] += Math.round((last.rot[b] - settle[b]) / 360) * 360;
+        over[b] = settle[b] + Math.trunc((settle[b] - last.rot[b]) / 16);
+      }
+      anim.keys[anim.keys.length - 1].ease = Ease.Smooth;
+      if (length - hold >= 6) anim.keys.push({ f: length - 2, rot: over,
+        rootX: rest.rootX, rootY: rest.rootY + m(0.005), ease: Ease.Smooth });
+      anim.keys.push({ f: length, rot: settle, rootX: rest.rootX, rootY: rest.rootY, ease: Ease.Smooth });
+    }
+    return { name, anim, length, hitboxes, ...opts };
   }
 
   anim(keys: KeySpec[], length: number, loop = false): Anim {
@@ -162,9 +185,24 @@ export function makeEx(base: MoveDef, name: string, extra: Partial<MoveDef> = {}
     bkb: Math.round(h.bkb * 1.15),
     ki: 0,
   });
+  let anim = base.anim;
+  if (extra.length !== undefined && extra.length > base.length) {
+    // Longer EX casts must hold the firing pose longer, rather than settling while the beam is active.
+    const delta = extra.length - base.length;
+    const tail = anim.keys.findIndex((k) => k.f >= base.length - 2);
+    if (tail > 0) {
+      const hold = anim.keys[tail - 1];
+      anim = { ...anim, length: extra.length, keys: [
+        ...anim.keys.slice(0, tail),
+        { ...hold, f: hold.f + delta, rot: hold.rot.slice() },
+        ...anim.keys.slice(tail).map((k) => ({ ...k, f: k.f + delta })),
+      ] };
+    }
+  }
   return {
     ...base,
     name,
+    anim,
     hitboxes: base.hitboxes.map(scaleHb),
     projectile: base.projectile
       ? { ...base.projectile, dmg: Math.round(base.projectile.dmg * 1.4), ki: 0, life: base.projectile.life + 20 }
@@ -183,6 +221,11 @@ export interface AnimStyle {
   bob?: number;
   /** Ninja run: torso far forward, arms trailing straight back. */
   ninjaRun?: boolean;
+  /** Nominal movement speeds (metres/tick), scale (per-mille), and take-off clock. */
+  walkSpeed?: number;
+  runSpeed?: number;
+  scale?: number;
+  jumpSquat?: number;
 }
 
 export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {}): FighterAnims {
@@ -206,7 +249,13 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
         ),
       }
     : {};
-  return {
+  const scale = (style.scale ?? 1000) / 1000;
+  const walkPeriod = Math.max(12, Math.round(1.6 * scale / (style.walkSpeed ?? 0.05)));
+  const runPeriod = Math.max(10, Math.round(2.2 * scale / (style.runSpeed ?? 0.12)));
+  // Retiming copies only locomotion clips, preserving integer key times and matching stride to speed.
+  const gait = (a: Anim, period: number) => ({ ...a, length: period,
+    keys: a.keys.map((k) => ({ ...k, f: Math.round(k.f * period / a.length) })) });
+  const result: FighterAnims = {
     idle: mb.anim(
       [
         { f: 0 },
@@ -218,11 +267,11 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
     ),
     walk: mb.anim(
       [
-        { f: 0, r: { RightUpLeg: 30, RightLeg: -10, LeftUpLeg: -25, LeftLeg: -20, Spine: -6 }, root: [0, -0.04] },
-        { f: 10, r: { RightUpLeg: 0, RightLeg: -40, LeftUpLeg: 0, LeftLeg: -5 }, root: [0, -0.02] },
-        { f: 20, r: { RightUpLeg: -25, RightLeg: -20, LeftUpLeg: 30, LeftLeg: -10 }, root: [0, -0.04] },
-        { f: 30, r: { RightUpLeg: 0, RightLeg: -5, LeftUpLeg: 0, LeftLeg: -40 }, root: [0, -0.02] },
-        { f: 40, r: { RightUpLeg: 30, RightLeg: -10, LeftUpLeg: -25, LeftLeg: -20 }, root: [0, -0.04] },
+        { f: 0, r: { RightUpLeg: 30, RightLeg: -10, LeftUpLeg: -25, LeftLeg: -20, Spine: -6, RightArm: -12, LeftArm: 35, RightForeArm: 30, LeftForeArm: 40 }, root: [0, -0.04] },
+        { f: 10, r: { RightUpLeg: 0, RightLeg: -40, LeftUpLeg: 0, LeftLeg: -5, RightArm: 12, LeftArm: 12 }, root: [0, -0.02] },
+        { f: 20, r: { RightUpLeg: -25, RightLeg: -20, LeftUpLeg: 30, LeftLeg: -10, RightArm: 35, LeftArm: -12 }, root: [0, -0.04] },
+        { f: 30, r: { RightUpLeg: 0, RightLeg: -5, LeftUpLeg: 0, LeftLeg: -40, RightArm: 12, LeftArm: 12 }, root: [0, -0.02] },
+        { f: 40, r: { RightUpLeg: 30, RightLeg: -10, LeftUpLeg: -25, LeftLeg: -20, RightArm: -12, LeftArm: 35 }, root: [0, -0.04] },
       ],
       40,
       true,
@@ -240,16 +289,17 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
     ),
     dash: mb.anim([{ f: 0, r: { Spine: -30, RightUpLeg: 60, RightLeg: -40, LeftUpLeg: -45, LeftLeg: -30, RightArm: -50, LeftArm: 40 }, root: [0, -0.1] }], 1),
     crouch: mb.anim([{ f: 0, r: { Spine: -25, RightUpLeg: 80, RightLeg: -110, LeftUpLeg: 50, LeftLeg: -120, Head: 15 }, root: [0, -0.32] }], 1),
-    jumpSquat: mb.anim([{ f: 0, r: { Spine: -20, RightUpLeg: 70, RightLeg: -100, LeftUpLeg: 50, LeftLeg: -100 }, root: [0, -0.25] }], 1),
+    jumpSquat: mb.anim([{ f: 0, ease: Ease.Smooth }, { f: style.jumpSquat ?? 3, r: { Spine: -20, RightUpLeg: 70, RightLeg: -100, LeftUpLeg: 50, LeftLeg: -100, RightArm: -15, LeftArm: -10 }, root: [0, -0.25] }], style.jumpSquat ?? 3),
     jump: mb.anim(
       [
         { f: 0, r: { Spine: -5, RightUpLeg: 70, RightLeg: -90, LeftUpLeg: -10, LeftLeg: -30, RightArm: 140, LeftArm: 30 }, root: [0, 0] },
-        { f: 14, r: { RightUpLeg: 50, RightLeg: -70, LeftUpLeg: 20, LeftLeg: -60, RightArm: 60 } },
+        { f: 14, r: { Spine: 4, RightUpLeg: 25, RightLeg: -25, LeftUpLeg: -5, LeftLeg: -15, RightArm: 100, LeftArm: 70 }, root: [0, 0.045], ease: Ease.Smooth },
+        { f: 24, r: { Spine: 0, RightUpLeg: 40, RightLeg: -55, LeftUpLeg: 15, LeftLeg: -40, RightArm: 85, LeftArm: 65 }, root: [0, 0] },
       ],
-      14,
+      24,
     ),
     fall: mb.anim([{ f: 0, r: { Spine: 0, RightUpLeg: 30, RightLeg: -40, LeftUpLeg: -10, LeftLeg: -30, RightArm: 110, RightForeArm: 30, LeftArm: 70, LeftForeArm: 30 } }], 1),
-    land: mb.anim([{ f: 0, r: { Spine: -25, RightUpLeg: 75, RightLeg: -105, LeftUpLeg: 45, LeftLeg: -110 }, root: [0, -0.28] }, { f: 6 }], 6),
+    land: mb.anim([{ f: 0, r: { Spine: -25, RightUpLeg: 75, RightLeg: -105, LeftUpLeg: 45, LeftLeg: -110 }, root: [0, -0.28] }, { f: 2, r: { Spine: -28 }, root: [0, -0.3], ease: Ease.Smooth }, { f: 6, r: mb.stance.r, root: mb.stance.root }], 6),
     shield: mb.anim([{ f: 0, r: { Spine: -15, RightArm: 100, RightForeArm: 120, LeftArm: 95, LeftForeArm: 125, RightUpLeg: 35, RightLeg: -50, LeftUpLeg: -10, LeftLeg: -30, Head: 15 }, root: [0, -0.1] }], 1),
     roll: mb.anim(
       [
@@ -346,6 +396,9 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
     ...ninja,
     beam: mb.anim([{ f: 0, r: { Spine: -10, RightArm: 90, RightForeArm: 0, LeftArm: 90, LeftForeArm: 0, RightHand: 90, LeftHand: 90, RightUpLeg: 40, RightLeg: -50, LeftUpLeg: -30, LeftLeg: -10 }, root: [0, -0.1] }], 1),
   };
+  result.walk = gait(result.walk, walkPeriod);
+  result.run = gait(result.run, runPeriod);
+  return result;
 }
 
 /** Universal combo breaker: invulnerable shockwave that pushes the attacker away. */

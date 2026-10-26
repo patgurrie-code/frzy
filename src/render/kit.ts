@@ -219,7 +219,7 @@ export class Dangle {
     dt = Math.min(dt, 0.1);
     this.t += dt;
     const o = this.o;
-    root.updateMatrixWorld(true);
+    root.updateWorldMatrix(true, false);
     const rootQ = root.getWorldQuaternion(this.rootQ);
     const k = 1 - Math.exp(-o.stiffness * dt);
     for (let i = 0; i < this.holders.length; i++) {
@@ -249,7 +249,7 @@ export class Dangle {
       const delta = this.deltaQ.setFromUnitVectors(pd, this.dirs[i]);
       const wq = delta.multiply(pq);
       h.quaternion.copy(pq.invert().multiply(wq));
-      h.updateMatrixWorld(true);
+      h.updateWorldMatrix(false, false);
     }
     this.initialized = true;
   }

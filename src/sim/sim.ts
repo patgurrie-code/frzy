@@ -2027,7 +2027,8 @@ export function applyHit(
 
   // Hitlag
   const hlMul = h.hitlag ?? 100;
-  const hitlag = Math.min(20, Math.trunc(((Math.trunc((dmg * 65) / 100) + 5) * hlMul) / 100));
+  // Shorter baseline freeze keeps light links flowing; heavy hits still scale up to 18f.
+  const hitlag = Math.min(18, Math.trunc(((Math.trunc((dmg * 55) / 100) + 4) * hlMul) / 100));
   if (!isProjectile) a.hitlag = hitlag;
   v.hitlag = hitlag;
 

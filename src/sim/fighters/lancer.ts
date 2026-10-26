@@ -35,7 +35,7 @@ const moves: MoveDef[] = [];
 moves[Mv.Jab] = mb.move(
   'Butt Strike',
   20,
-  [{ f: 0 }, { f: 3, r: { ...thrust, RightArm: 80, Spine: -12 } }, { f: 7, r: { RightArm: 82 } }, { f: 14 }],
+  [{ f: 0 }, { f: 1, r: { RightArm: 60, RightForeArm: 65 } }, { f: 3, r: { ...thrust, RightArm: 80, Spine: -12 } }, { f: 7, r: { RightArm: 82 } }, { f: 14 }],
   [hb(4, 6, { bone: R, at: MID, r: 0.16, dmg: 3, bkb: 18, kbg: 40, angle: 361, hitstun: 14 })],
   { iasa: 14, chain: { from: 7, next: Mv.Jab2 } },
 );
@@ -324,7 +324,7 @@ export const SERA: FighterDef = {
       { f: 78, r: { Hips: -360 } },
       { f: 100, r: { Hips: 0 } },
     ], 110),
-    ...stateAnims(mb, false, { idlePeriod: 70, bob: 0.015 }),
+    ...stateAnims(mb, false, { walkSpeed: 0.055, runSpeed: 0.12, scale: 1010, jumpSquat: 4, idlePeriod: 70, bob: 0.015 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 10, RightForeArm: 80, RightHand: 100, LeftArm: 60, LeftForeArm: 110, Spine: 4, Head: -6, RightUpLeg: 5, LeftUpLeg: -5, RightLeg: 0, LeftLeg: 0 }, root: [0, 0] },
       { f: 50, r: { Head: -12 } },

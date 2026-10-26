@@ -32,7 +32,7 @@ moves[Mv.Jab] = mb.move(
   'Hammer Jab',
   24,
   [
-    { f: 0 },
+    { f: 0 }, { f: 1, r: { RightArm: 25, RightForeArm: 90 } },
     { f: 4, r: { RightArm: 92, RightForeArm: 8, Spine: -12 } },
     { f: 9, r: { RightArm: 90, RightForeArm: 10 } },
     { f: 16 },
@@ -458,7 +458,7 @@ export const TORVAL: FighterDef = {
       { f: 75, r: { Spine: 0, Head: -5, RightArm: 20, LeftArm: 20, RightForeArm: 60, LeftForeArm: 60 }, root: [0, 0] },
       { f: 100 },
     ], 110),
-    ...stateAnims(mb, true, { idlePeriod: 90, bob: 0.015 }),
+    ...stateAnims(mb, true, { walkSpeed: 0.045, runSpeed: 0.098, scale: 1120, jumpSquat: 5, idlePeriod: 90, bob: 0.015 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 45, RightForeArm: 95, RightHand: 0, LeftArm: 48, LeftForeArm: 100, LeftHand: 60, Spine: 4, Head: -8, RightUpLeg: 8, LeftUpLeg: -8, RightLeg: -5, LeftLeg: -5 }, root: [0, 0] },
       { f: 60, r: { Head: -14 }, root: [0, 0.01] },

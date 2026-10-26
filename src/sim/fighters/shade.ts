@@ -36,7 +36,7 @@ const moves: MoveDef[] = [];
 moves[Mv.Jab] = mb.move(
   'Quick Cut',
   14,
-  [{ f: 0 }, { f: 2, r: slash('Right', 95) }, { f: 5, r: slash('Right', 60) }, { f: 10 }],
+  [{ f: 0 }, { f: 1, r: { RightArm: 30, RightForeArm: 105 } }, { f: 2, r: slash('Right', 95) }, { f: 5, r: slash('Right', 60) }, { f: 10 }],
   [hb(2, 4, { bone: R, at: BLADE, r: 0.14, dmg: 2, bkb: 15, kbg: 35, angle: 361, hitstun: 12 })],
   { iasa: 10, chain: { from: 5, next: Mv.Jab2 } },
 );
@@ -331,7 +331,7 @@ export const VESHA: FighterDef = {
       { f: 65, r: { Spine: -20, RightUpLeg: 40, LeftUpLeg: -20, RightLeg: -60, LeftLeg: -30 }, root: [0, 0.1] },
       { f: 90 },
     ], 110),
-    ...stateAnims(mb, false, { idlePeriod: 40, bob: 0.025, ninjaRun: true }),
+    ...stateAnims(mb, false, { walkSpeed: 0.07, runSpeed: 0.155, scale: 930, jumpSquat: 3, idlePeriod: 40, bob: 0.025, ninjaRun: true }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 50, RightForeArm: 130, LeftArm: 55, LeftForeArm: 128, RightHand: -80, LeftHand: -80, Spine: 2, Head: 18, RightUpLeg: 6, LeftUpLeg: -6, RightLeg: -4, LeftLeg: -4 }, root: [0, 0] },
       { f: 40, r: { Head: 24 } },

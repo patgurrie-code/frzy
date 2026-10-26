@@ -1,5 +1,6 @@
 // three.js renderer. Reads sim state (previous + current for interpolation); never mutates it.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { FX } from '../sim/fixed';
 import { FIGHTERS } from '../sim/fighters';
 import { STAGES, StageDef } from '../sim/stage';
@@ -50,8 +51,9 @@ export class GameRenderer {
   private hitInst: THREE.InstancedMesh;
   private dummy = new THREE.Object3D();
   private joints = makeJoints();
-  private trails: { pts: THREE.Vector3[]; mesh: THREE.Mesh; geo: THREE.BufferGeometry; width: number }[] = [];
+  private trails: { pts: THREE.Vector3[]; spare: THREE.Vector3[]; mesh: THREE.Mesh; geo: THREE.BufferGeometry; width: number }[] = [];
   private trailJoints = makeJoints();
+  private trailPoint = new THREE.Vector3();
   private clashFx: THREE.Mesh;
   private bgFar: THREE.Group = new THREE.Group();
 
@@ -132,7 +134,7 @@ export class GameRenderer {
       );
       mesh.frustumCulled = false;
       this.scene.add(mesh);
-      return { pts: [] as THREE.Vector3[], mesh, geo, width: 0.15 };
+      return { pts: [] as THREE.Vector3[], spare: Array.from({ length: 10 }, () => new THREE.Vector3()), mesh, geo, width: 0.15 };
     });
     this.models = s.fighters.map((f) => {
       const base = FIGHTERS[f.char];
@@ -241,6 +243,33 @@ export class GameRenderer {
         wall.position.set(toM(wx), 6, 0);
         this.stageGroup.add(wall);
       }
+    }
+    this.batchStatic(this.stageGroup);
+    this.batchStatic(this.bgFar);
+  }
+
+  /** Static stage meshes share materials: batch once at setup instead of submitting every tile/pillar. */
+  private batchStatic(group: THREE.Group): void {
+    group.updateMatrixWorld(true);
+    const inverse = group.matrixWorld.clone().invert();
+    const transform = new THREE.Matrix4();
+    const batches = new Map<THREE.Material, { geos: THREE.BufferGeometry[]; order: number }>();
+    group.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || Array.isArray(mesh.material)) return;
+      let batch = batches.get(mesh.material);
+      if (!batch) { batch = { geos: [], order: mesh.renderOrder }; batches.set(mesh.material, batch); }
+      transform.multiplyMatrices(inverse, mesh.matrixWorld);
+      batch.geos.push(mesh.geometry.clone().applyMatrix4(transform));
+    });
+    group.clear();
+    for (const [mat, batch] of batches) {
+      const geometry = mergeGeometries(batch.geos, false);
+      if (!geometry) throw new Error('Incompatible static stage geometry');
+      const mesh = new THREE.Mesh(geometry, mat);
+      mesh.renderOrder = batch.order;
+      group.add(mesh);
+      for (const g of batch.geos) g.dispose();
     }
   }
 
@@ -436,6 +465,7 @@ export class GameRenderer {
       const ref = pose.sample(p, f, def, alpha, dt, cur.phase, cur.phaseTimer, prev.phaseTimer, reset);
       applyPose(model, pose.rot, pose.root);
       updateGlb(model, ref.clip, ref.frame);
+      model.root.updateMatrixWorld(true);
       for (const d of model.dangles) d.update(dt, model.root);
 
       // Invulnerability flicker, aura, shield
@@ -594,17 +624,17 @@ export class GameRenderer {
         if (h) {
           const j = fighterJoints(f, this.trailJoints);
           const [px, py] = bonePoint(j, h.bone, h.ox, h.oy);
-          const p = new THREE.Vector3(toM(f.x + px * f.facing), toM(f.y + py), 0.35);
+          const p = this.trailPoint.set(toM(f.x + px * f.facing), toM(f.y + py), 0.35);
           const last = tr.pts[tr.pts.length - 1];
           if (!last || last.distanceToSquared(p) > 0.0004) {
-            tr.pts.push(p);
+            const point = tr.spare.pop() ?? tr.pts.shift()!;
+            tr.pts.push(point.copy(p));
             tr.width = toM(h.r) * 1.1;
             added = true;
           }
         }
       }
-      if (!added && tr.pts.length) tr.pts.shift();
-      while (tr.pts.length > 10) tr.pts.shift();
+      if (!added && tr.pts.length) tr.spare.push(tr.pts.shift()!);
       const pos = tr.geo.attributes.position as THREE.BufferAttribute;
       const col = tr.geo.attributes.color as THREE.BufferAttribute;
       const n = tr.pts.length;

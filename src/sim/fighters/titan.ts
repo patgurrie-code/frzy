@@ -32,7 +32,7 @@ const moves: MoveDef[] = [];
 moves[Mv.Jab] = mb.move(
   'Heavy Jab',
   24,
-  [{ f: 0 }, { f: 5, r: { RightArm: 90, RightForeArm: 10, Spine: -18 } }, { f: 10, r: { RightArm: 88 } }, { f: 18 }],
+  [{ f: 0 }, { f: 1, r: { RightArm: 30, RightForeArm: 85 } }, { f: 5, r: { RightArm: 90, RightForeArm: 10, Spine: -18 } }, { f: 10, r: { RightArm: 88 } }, { f: 18 }],
   [hb(5, 7, { bone: R, at: FIST, r: 0.2, dmg: 5, bkb: 25, kbg: 45, angle: 361, hitstun: 16 })],
   { iasa: 18, chain: { from: 9, next: Mv.Jab2 } },
 );
@@ -288,7 +288,7 @@ export const BRAKKA: FighterDef = {
       { f: 85, r: { Spine: 20, Head: -35 } },
       { f: 105 },
     ], 110),
-    ...stateAnims(mb, true, { idlePeriod: 48, bob: 0.04 }),
+    ...stateAnims(mb, true, { walkSpeed: 0.04, runSpeed: 0.09, scale: 1220, jumpSquat: 6, idlePeriod: 48, bob: 0.04 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 95, RightForeArm: 120, LeftArm: 95, LeftForeArm: 120, RightHand: 0, Spine: 10, Head: -15, RightUpLeg: 25, LeftUpLeg: -25, RightLeg: -10, LeftLeg: -10 }, root: [0, -0.04] },
       { f: 15, r: { RightForeArm: 140, LeftForeArm: 140, Spine: 14 }, root: [0, -0.06] },
