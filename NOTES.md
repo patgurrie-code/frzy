@@ -20,6 +20,10 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 - 2026-10-25 (Claude Code): PR #3 merged. Did (1) animation pass: eased keyframes, render torso twist, hit reactions by
   height, facial expressions + blinks, intro poses; (2) Versus depth: high/low/overhead blocking, throw escapes, wall
   bounces, launchers + air combos (juggle decay), burst; CPU uses all of them. 50 unit + 5 e2e tests passing.
+- 2026-10-26 (Claude Code): PR #4 merged. ONLINE 1v1 added: rollback netcode, WebRTC P2P with relay fallback, Cloudflare
+  Worker + Durable Object relay (same deploy as the game) and a Node relay, lobby with room codes / invite links / rematch.
+  Gameplay: CPU move choice from real hitbox ranges (Sera fixed), short-hop aerial macro, ledge trump, Platform combo
+  counter, Brakka power 86. CPU round robin now 6–10 wins each. 56 unit + 6 e2e tests (incl. two-browser online) passing.
 
 ## Done (character & gameplay pass)
 - See AGENTS.md "Character art" and "Gameplay decisions → Defence/combo systems".
@@ -50,9 +54,9 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 - Tests: 27 unit tests (determinism, save/load rerun, integer-only, purity grep, gameplay, CPU), 4 Playwright smoke tests.
 
 ## Known issues / ideas
-- Balance: CPU round robin (level 6, versus+platform) after the power stat: Kestrel 13, Brakka 9, Vesha 10, Torval 7, Sera 1-4.
-  Sera underperforms mostly because the CPU spaces her badly (it picks short moves at spear range) — give the CPU
-  per-move ranges, and consider faster spear startup.
+- Balance: CPU round robin (level 6, versus+platform): Kestrel 7, Torval 6, Sera 8, Vesha 9, Brakka 10.
+- Online: no TURN server (strict NATs fall back to the WebSocket relay — works, slightly higher latency). Online is 1v1 only;
+  4-player / 2×2 online, spectators, ranked and reconnect-after-drop are not done. Not yet tested across real internet.
 - Move animations are still the original keyframes; the new models make stiff poses more visible — a per-move polish pass
   (anticipation/follow-through, smears) is the next big character win.
 - Story portraits are CSS placeholder busts; story has one stage only and no music. Locked chapter cards show the hero.
@@ -71,6 +75,5 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
 2. Balance/tuning pass with hitbox view; per-move SFX/VFX variety; tech on landing; ledge trump.
 3. Real hardware perf pass (draw-call count, merge static stage meshes, instanced outlines if needed).
 4. Fighters 6–8 + 4 stages with hazards; transformations.
-5. Online: `/server` WebSocket signalling (Render Singapore), WebRTC data channels, rollback (2f delay, 8f rollback),
-   event de-dup by frame in renderer, desync checksums.
+5. Online next: 2×2 / 4-player rollback, reconnect, input delay setting, spectators, region info.
 6. Single player extras: World Tour, unlocks, levels, saves with export codes.

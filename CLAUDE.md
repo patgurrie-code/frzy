@@ -14,10 +14,14 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
 
 ## Stack & commands
 - Vite + TypeScript + three.js; Vitest (unit, `tests/`), Playwright (browser smoke, `e2e/`).
-- `npm run dev` · `npm test` · `npm run build` · `npm run test:e2e` (builds + previews on :4173).
+- `npm run dev` · `npm test` · `npm run build` · `npm run test:e2e` (builds + previews on :4173 and starts the relay).
+- `npm run server` = online relay on :8787 (Node, `server/index.mjs`); Vite dev/preview proxy `/ws` to it.
 - Playwright is pinned to 1.63.0 to match the pre-installed Chromium in the cloud container.
 - Render static site: build `npm ci && npm run build`, publish `dist` (see `render.yaml`). `base: './'` in vite config.
-- Future: Node WebSocket signalling/relay server in `/server` (Render, Singapore).
+- Cloudflare deploy (`wrangler.jsonc`): Worker `server/worker.ts` serves `dist` (ASSETS binding) AND the online relay at `/ws`
+  via one Durable Object per room (`Room`, SQLite-backed class → works on the free plan). Build `npm ci && npm run build`,
+  deploy `npx wrangler deploy`. Render static hosting has no WebSockets: there, run the Node relay elsewhere and build with
+  `VITE_SIGNAL_URL=wss://your-relay` (client then connects to `${VITE_SIGNAL_URL}/ws?room=CODE`).
 
 ## Architecture (non-negotiable)
 - `src/sim/` is a PURE deterministic module: no DOM, no three.js, no floats in state, no Math.sin/cos/random/sqrt, no Date.
@@ -89,7 +93,7 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
   launcher hitbox so it reaches at Versus spacing). **Air combos**: aerial on airborne victim → carried (45% kb, 18–30f
   hitstun) with juggle decay after 6 hits. **Burst** (`Mv.Burst`, `burstMove()` in common.ts): Guard+Special in hitstun,
   1 bar, once per round in Versus, invulnerable shockwave. Events: WrongGuard, ThrowTech, WallBounce, Burst, Launch.
-- Balance knob: `FighterStats.power` (% damage dealt). Current: Torval 96, Sera 112, Vesha 118 (weight 78), Brakka 90.
+- Balance knob: `FighterStats.power` (% damage dealt). Current: Torval 96, Sera 112, Vesha 118 (weight 78), Brakka 86.
 - Beam clash: two opposing beams' heads cross → both casters locked, mash Attack/Special; push ±1000; winner's beam continues with
   +50% power, loser's beam vanishes.
 - Shield (Guard on ground): Smash-style HP, roll (tap left/right), spot dodge (tap down), grab (Attack/Grab), jump OOS.
@@ -115,7 +119,11 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
   `vanish`) / Shade Ascent (teleport up) / Mirror Veil (counter). Super "Eclipse: Thousand Cuts".
 - 4 BRAKKA `titan.ts`: giant grappler (135), armour on many moves. Boulder Toss / Avalanche Grab (command grab → Mountain
   Driver) / Rising Bull (armoured) / Seismic Stomp. Super "Titanfall".
-- CPU reach per fighter id in `src/ai/cpu.ts` (REACH table) — add new fighters there.
+- CPU attack choice uses `src/ai/moveInfo.ts`: every move's real hitbox range (FK at active frames) + startup + damage,
+  precomputed per fighter; the CPU only picks moves that reach the opponent (weighted by damage/speed). New fighters work
+  automatically.
+- Short-hop aerial macro: Jump + Attack on the same frame (without Up) = short hop + aerial (`shAerial`). Ledge trump:
+  grabbing an occupied ledge pops the hanger off without invulnerability. Platform HUD has a combo counter.
 - Easing (`anim.ts`): each key's `ease` shapes the segment that starts at it (Linear / Snap = ease-out cubic / Smooth =
   smoothstep), integer maths in the sim. `MoveBuilder.move` auto-assigns: the segment arriving at the first active frame =
   Snap, wind-ups and recoveries = Smooth (override per key with `ease`). Loops default to Smooth.
@@ -139,6 +147,23 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 - Renderer FX: directional hit sparks + streak particles along the launch angle, dust puffs (land/jump/dodge/tech), camera
   punch-in on hits, swoosh ribbons following the first active hitbox, hit flash. FPS overlay (` key) shows draw calls.
 - GLB models still replace the procedural design via `glbLoader.ts` (it hides non-bone children of the bones).
+
+## Online (src/net/, src/ui/online.ts, server/)
+- 1v1 only for now (2 laptops, keyboard 1 each). Rollback session `RollbackSession` (`src/net/rollback.ts`): input delay 2,
+  max rollback 8 (stalls beyond), predicts the remote input by repeating the last confirmed one, re-simulates silently on a
+  misprediction (events only from first-time frames = event de-dup), redundant input packets (all unacked, ≤30) so loss is
+  harmless, checksum of confirmed frames every 60 → `desync` frame. Never sends inputs that aren't decided yet (a bug that
+  caused desyncs under stalls — see tests). Time sync: Match skips every 3rd tick while `frameAdvantage > delay+1`.
+- `NetLink` (`src/net/link.ts`): WebSocket to `/ws?room=CODE` for signalling + reliable lobby messages; WebRTC data channel
+  (unordered, no retransmit; STUN only) for inputs, falling back to relaying fast messages over the WebSocket. Ping via
+  `_png/_pog`. Relay protocol in `server/rooms.mjs` (joined/peer/left/full; everything else relayed to the other slot).
+- Lobby (`OnlineLobby`): create room (5-char code, invite link `?room=CODE` auto-joins), fighter pick, host picks rules
+  (Versus best of 3 / Platform 3 stocks) and sends {t:'start', seed, mode, chars, stocks}; rematch when both ask;
+  disconnect → back to the lobby. Protocol version `PROTOCOL` in online.ts — bump on any sim/data change that affects
+  determinism so mismatched builds refuse to play. Online can't pause (Esc menu, game keeps running).
+- Tests: `tests/rollback.test.ts` (two sessions over a simulated lossy/jittery link must match each other AND an offline
+  replay), `e2e/online.spec.ts` (two browser contexts through the real relay; compares checksums).
+- Mirror matches: later duplicates of a fighter get an auto alternate palette (channel rotation) in every mode.
 
 ## Story mode ("FRAY: EMBERFALL")
 - Content is DATA in `src/story/story.ts`: `SPEAKERS` (cast; bosses = existing fighter + `look` override + `mods`),

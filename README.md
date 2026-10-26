@@ -13,7 +13,8 @@ npm run build      # production build in dist/
 ```
 
 ## Modes
-**Story** (FRAY: Emberfall — prologue + 7 chapters with cutscenes and bosses) · **Platform** (1–4 players, stocks) ·
+**Story** (FRAY: Emberfall — prologue + 7 chapters with cutscenes and bosses) · **Online** (1v1 with a friend, rollback
+netcode, room codes) · **Platform** (1–4 players, stocks) ·
 **Versus** (1v1, best of 3) · **Training** (hitboxes, frame step).
 
 Fighters: KESTREL (brawler), TORVAL (ki-blaster), SERA (spear knight), VESHA (shadow ninja), BRAKKA (giant grappler).
@@ -24,7 +25,7 @@ Fighters: KESTREL (brawler), TORVAL (ki-blaster), SERA (spear knight), VESHA (sh
 | P1 (single player) | WASD | W / Space | J | I | K | L / L-Shift | U |
 | P2 (same keyboard) | Arrows | ↑ | , | ' | . | / | ; |
 
-- Hold a direction to walk, keep holding to run (Platform); double-tap to dash.
+- Hold a direction to walk, keep holding to run (Platform); double-tap to dash. Jump + Attack together = short-hop aerial.
 - Attack = jab (tap ×3 for a combo) or tilts with a direction. Smash + direction = smash attack (hold to charge).
 - Special + direction = 4 specials. **Smash + Special** = EX special (1 ki bar). **Guard + Special** (hold) = charge ki.
   **Attack + Special** together with 3 bars = SUPER. Mash Attack/Special in a beam clash.
@@ -37,9 +38,18 @@ Fighters: KESTREL (brawler), TORVAL (ki-blaster), SERA (spear knight), VESHA (sh
   right stick = smash in a direction.
 - Esc pause (shows the controls) · Training: F1 hitboxes, F2 frame-step, F3 resume, F4 reset damage · ` FPS counter.
 
+## Online play
+- **Deployed on Cloudflare:** nothing extra — the same Worker serves the game and the online relay (`/ws`, Durable Objects).
+  Click ONLINE → Create room → send your friend the code or invite link.
+- **Local test:** `npm run server` (relay on :8787) + `npm run dev`, then open two browser windows.
+- **Other hosts (e.g. Render static):** static hosts can't run WebSockets. Run `npm run server` on any Node host and build the
+  game with `VITE_SIGNAL_URL=wss://your-relay-host`.
+
 ## Deploy
-- **Cloudflare Workers/Pages:** build `npm ci && npm run build`, deploy `npx wrangler deploy` (uses `wrangler.jsonc`, serves `dist`).
-- **Render static site:** `render.yaml` included (build `npm ci && npm run build`, publish `dist`).
+- **Cloudflare Workers:** build `npm ci && npm run build`, deploy `npx wrangler deploy` (`wrangler.jsonc`: static `dist` +
+  online relay Worker/Durable Object). Non-production branch command: `npx wrangler versions upload`.
+- **Render static site:** `render.yaml` included (build `npm ci && npm run build`, publish `dist`) — offline modes only unless
+  you point `VITE_SIGNAL_URL` at a relay.
 
 ## Custom fighter models
 Drop an auto-rigged GLB (Mixamo skeleton, e.g. from Meshy/Tripo + Mixamo) at `public/fighters/<id>/model.glb`
