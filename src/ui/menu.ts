@@ -10,6 +10,7 @@ import { portrait } from './hud';
 export interface MenuCallbacks {
   start(setup: MatchSetup): void;
   story(): void;
+  online(): void;
   resume(): void;
   quit(): void;
   rematch(): void;
@@ -90,6 +91,7 @@ export class Menu {
       <div class="logo small">FRAY</div>
       <div class="menu-list">
         <button class="primary big" data-m="story"><b>STORY</b><small>FRAY: EMBERFALL · 8 chapters · bosses</small></button>
+        <button class="big" data-m="online"><b>ONLINE</b><small>1v1 with a friend · room codes · rollback netcode</small></button>
         <button class="big" data-m="platform"><b>PLATFORM</b><small>1–4 players · stocks · knock them off the stage</small></button>
         <button class="big" data-m="versus"><b>VERSUS</b><small>1v1 · health bars · best of 3 · 99 s</small></button>
         <button class="big" data-m="training"><b>TRAINING</b><small>hitboxes (F1) · frame step (F2)</small></button>
@@ -101,6 +103,7 @@ export class Menu {
         const m = b.dataset.m!;
         if (m === 'settings') this.settings();
         else if (m === 'story') this.cb.story();
+        else if (m === 'online') this.cb.online();
         else this.select(m === 'versus' ? Mode.Versus : Mode.Platform, m === 'training');
       }),
     );

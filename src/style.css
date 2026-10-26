@@ -255,3 +255,24 @@ button.ch-card.done { border-color: var(--accent); }
 .callout.c-cancel { color: #b7a6ff; font-size: 28px; }
 @keyframes calloutIn { from { opacity: 0; transform: skewX(-12deg) scale(2); } }
 @keyframes calloutOut { to { opacity: 0; transform: skewX(-12deg) translateY(-14px); } }
+.net-status { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font: 12px monospace; color: #cfe; background: #0008; padding: 2px 8px; border-radius: 4px; }
+.hud-versus ~ .net-status { top: 100px; }
+
+/* ---------- Online ---------- */
+.online { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto;
+  background: radial-gradient(ellipse at center, rgba(13,15,26,0.55), rgba(13,15,26,0.92)); }
+.online-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: min(760px, 94vw); }
+.on-box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.on-box h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 28px; letter-spacing: 1px; }
+.on-box input, .invite input { font: 700 22px var(--font-ui); letter-spacing: 4px; text-transform: uppercase; background: #0b0d18; color: var(--text); border: 2px solid var(--line); border-radius: 6px; padding: 8px 12px; }
+.invite { display: flex; gap: 8px; width: min(760px, 94vw); }
+.invite input { flex: 1; font-size: 14px; letter-spacing: 0; text-transform: none; }
+.room-code { color: var(--hot); letter-spacing: 8px; }
+.on-status { font-size: 18px; color: #cfe; min-height: 24px; }
+.on-vs { display: flex; align-items: center; gap: 24px; }
+.on-player { display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 260px; min-height: 200px; justify-content: center; }
+.on-vs-mid { font-family: var(--font-display); font-size: 64px; }
+.on-tag { font-weight: 700; color: var(--muted); letter-spacing: 2px; }
+.on-empty { color: var(--muted); font-style: italic; }
+button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.pf-combo { top: 110px; } .combo small { font-size: 22px; color: #fff; margin-left: 6px; }

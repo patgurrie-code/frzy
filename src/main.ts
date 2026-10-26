@@ -7,6 +7,7 @@ import { InputManager } from './input/input';
 import { Match, MatchSetup } from './game';
 import { Mode, GameState } from './sim/state';
 import { Story } from './ui/story';
+import { OnlineLobby } from './ui/online';
 
 const canvas = document.getElementById('view') as HTMLCanvasElement;
 const ui = document.getElementById('ui') as HTMLElement;
@@ -61,10 +62,20 @@ const menu = new Menu(ui, input, sfx, {
     menu.hide();
     story.open();
   },
+  online() {
+    menu.hide();
+    stopAttract();
+    online.open();
+  },
   resume() {
     if (match?.paused) match.togglePause();
   },
   quit() {
+    if (online.active) {
+      menu.hide();
+      online.quitMatch();
+      return;
+    }
     match?.stop();
     match = null;
     if (story.active) {
@@ -88,7 +99,11 @@ function startMatch(setup: MatchSetup) {
   match = new Match(setup, renderer, hud, sfx, input);
   match.onPause = () => menu.pause(match!.paused);
   match.onEnd = (s) => {
-    if (storyDone) {
+    if (onlineDone) {
+      const cb = onlineDone;
+      onlineDone = null;
+      cb(s);
+    } else if (storyDone) {
       const cb = storyDone;
       storyDone = null;
       match?.stop();
@@ -98,6 +113,26 @@ function startMatch(setup: MatchSetup) {
   };
   match.start();
 }
+
+// Online lobby host: matches end back in the lobby (results / rematch), never in the offline results screen.
+let onlineDone: ((s: GameState) => void) | null = null;
+const online = new OnlineLobby(ui, {
+  startMatch(setup, onEnd) {
+    onlineDone = onEnd;
+    startMatch(setup);
+    return match!;
+  },
+  stopMatch() {
+    onlineDone = null;
+    match?.stop();
+    match = null;
+    menu.hide();
+  },
+  exit() {
+    startAttract();
+    menu.main();
+  },
+}, sfx);
 
 // Story mode host: backdrops are quiet idle matches; fights are normal matches whose end goes back to the story.
 const story = new Story(ui, {
@@ -132,5 +167,12 @@ setInterval(() => {
   if (m) fpsEl.textContent = `${m.fps} fps · ${renderer.renderer.info.render.calls} draws`;
 }, 500);
 
-startAttract();
-menu.title();
+// Invite links: ?room=CODE jumps straight into the online lobby.
+const roomParam = new URLSearchParams(location.search).get('room');
+if (roomParam) {
+  menu.hide();
+  online.open(roomParam.toUpperCase());
+} else {
+  startAttract();
+  menu.title();
+}

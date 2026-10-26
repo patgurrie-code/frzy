@@ -1,9 +1,17 @@
-// Cloudflare Workers static-assets deploy: serves the Vite build in ./dist.
+// Cloudflare Workers deploy: serves the Vite build in ./dist and the online relay (/ws) from server/worker.ts.
+// Deploy command: npx wrangler deploy   (build first: npm ci && npm run build)
 {
   "name": "fray",
+  "main": "server/worker.ts",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/ws*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
 }

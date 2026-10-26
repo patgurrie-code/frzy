@@ -106,6 +106,7 @@ export interface FighterState {
   wallBounced: number; // 1 once a wall bounce happened in the current combo
   throwTech: number; // frames left to break a fresh grab
   burstUsed: number; // Versus: 1 once the burst has been used this round
+  shAerial: number; // 1 = short-hop aerial macro pending (Jump + Attack pressed together)
 }
 
 export interface ProjectileState {
@@ -266,6 +267,7 @@ export function newFighterState(char: number, port: number, team: number): Fight
     wallBounced: 0,
     throwTech: 0,
     burstUsed: 0,
+    shAerial: 0,
   };
 }
 

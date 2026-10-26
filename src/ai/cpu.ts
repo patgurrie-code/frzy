@@ -7,6 +7,7 @@ import { STAGES } from '../sim/stage';
 import { Act, FighterState, GameState, Mode, Phase } from '../sim/state';
 import { IN_ATTACK, IN_DOWN, IN_GRAB, IN_GUARD, IN_JUMP, IN_LEFT, IN_RIGHT, IN_SMASH, IN_SPECIAL, IN_UP } from '../sim/input';
 import { Mv } from '../sim/defs';
+import { GROUND_RANGES, AIR_RANGES, MAX_REACH } from './moveInfo';
 
 export interface CpuMemory {
   prev: number;
@@ -206,32 +207,79 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
   // Super when close with full meter
   if (me.ki >= 300 && adx < 3 * M && abs(dy) < M && rand(s, port, 8, 4) === 0) return press(mem, IN_ATTACK | IN_SPECIAL);
 
-  const REACH: Record<string, number> = { torval: 1.5, sera: 1.3, brakka: 1.6, vesha: 1.1 };
-  const reach = (REACH[def.id] ?? 1.25) * M;
+  // Hurtbox slack: the opponent's body extends ~0.25 m towards us.
+  const reach = MAX_REACH[me.char] + M / 4;
+  void def;
   const actionable = me.act === Act.Idle || me.act === Act.Walk || me.act === Act.Run || me.act === Act.Dash || me.act === Act.Air || me.act === Act.Crouch;
   if (!actionable) return mem.prev & (IN_LEFT | IN_RIGHT);
 
-  // In range: attack
-  if (adx < reach && abs(dy) < 1.2 * M) {
+  // In range: pick a move whose real hitbox range covers the opponent's position (precomputed from move data)
+  if (adx < reach && abs(dy) < 2 * M) {
     const dirT = toward(tgt.x);
-    if (!me.grounded) {
-      if (dy > M / 2) return press(mem, IN_UP | IN_ATTACK);
-      if (dy < -M / 2) return press(mem, IN_DOWN | IN_ATTACK);
-      return press(mem, (facingTgt ? 0 : 0) | (rand(s, port, 9, 2) ? dirT : 0) | IN_ATTACK);
+    const ranges = me.grounded ? GROUND_RANGES[me.char] : AIR_RANGES[me.char];
+    const slack = M / 4;
+    const relY = dy + M * 0.9; // aim at the opponent's torso
+    const fits: { r: (typeof ranges)[number]; w: number }[] = [];
+    for (const r of ranges) {
+      const back = r.move === Mv.BAir;
+      const fx = back ? -adx : adx;
+      const facingOk = me.grounded || (back ? !facingTgt : facingTgt) || r.move === Mv.NAir || r.move === Mv.UAir || r.move === Mv.DAir;
+      if (!facingOk) continue;
+      if (fx < r.x1 - slack || fx > r.x2 + slack) continue;
+      if (relY < r.y1 - slack || relY > r.y2 + slack) continue;
+      const smash = r.move === Mv.FSmash || r.move === Mv.USmash || r.move === Mv.DSmash;
+      if (smash && level < 3) continue;
+      const pct = s.mode === Mode.Platform ? tgt.damage / 10 : 60;
+      let w = ((r.dmg + 4) * 100) / (r.startup + 4);
+      if (smash) w = (w * (40 + pct)) / 100;
+      if (r.move === Mv.Grab) w = tgt.act === Act.Shield ? 400 : 40;
+      fits.push({ r, w: Math.max(1, Math.round(w)) });
     }
-    const r = rand(s, port, 10, 100);
-    const pct = s.mode === Mode.Platform ? tgt.damage / 10 : 60;
-    if (r < 12) return press(mem, IN_GRAB);
-    if (r < 22 + pct / 6 && level >= 3) {
-      // smash attack (dedicated Smash button + direction)
-      const d = rand(s, port, 11, 3);
-      return press(mem, (d === 0 ? IN_UP : d === 1 ? IN_DOWN : dirT) | IN_SMASH);
+    if (fits.length) {
+      let total = 0;
+      for (const f of fits) total += f.w;
+      let pick = rand(s, port, 10, total);
+      let chosen = fits[0].r;
+      for (const f of fits) {
+        if (pick < f.w) {
+          chosen = f.r;
+          break;
+        }
+        pick -= f.w;
+      }
+      if (me.grounded && !facingTgt && chosen.move !== Mv.FTilt && chosen.move !== Mv.FSmash) return dirT; // turn first
+      switch (chosen.move) {
+        case Mv.Jab:
+          return press(mem, IN_ATTACK);
+        case Mv.FTilt:
+          return press(mem, dirT | IN_ATTACK);
+        case Mv.UTilt:
+          return press(mem, IN_UP | IN_ATTACK);
+        case Mv.DTilt:
+          return press(mem, IN_DOWN | IN_ATTACK);
+        case Mv.FSmash:
+          return press(mem, dirT | IN_SMASH);
+        case Mv.USmash:
+          return press(mem, IN_UP | IN_SMASH);
+        case Mv.DSmash:
+          return press(mem, IN_DOWN | IN_SMASH);
+        case Mv.Grab:
+          return press(mem, IN_GRAB);
+        case Mv.NAir:
+          return press(mem, IN_ATTACK);
+        case Mv.FAir:
+          return press(mem, (me.facing > 0 ? IN_RIGHT : IN_LEFT) | IN_ATTACK);
+        case Mv.BAir:
+          return press(mem, (me.facing > 0 ? IN_LEFT : IN_RIGHT) | IN_ATTACK);
+        case Mv.UAir:
+          return press(mem, IN_UP | IN_ATTACK);
+        case Mv.DAir:
+          return press(mem, IN_DOWN | IN_ATTACK);
+      }
     }
-    if (r < 50) return press(mem, IN_ATTACK);
-    if (r < 62) return press(mem, IN_DOWN | IN_ATTACK);
-    if (r < 72 && dy > 0) return press(mem, IN_UP | IN_JUMP);
-    if (!facingTgt) return dirT;
-    return press(mem, (mem.prev & dirT) | IN_ATTACK);
+    // Nothing reaches: step in (or jump if they're above)
+    if (me.grounded && dy > M && rand(s, port, 9, 3) === 0) return press(mem, IN_UP | IN_JUMP);
+    if (adx > M / 2) return dirT;
   }
 
   // Opponent above: jump toward

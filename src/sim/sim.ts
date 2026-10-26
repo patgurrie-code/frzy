@@ -202,6 +202,7 @@ function emit(s: GameState, type: EvType, x = 0, y = 0, a = 0, b = 0): void {
 function setAct(f: FighterState, act: Act): void {
   f.act = act;
   f.actFrame = 0;
+  if (act !== Act.JumpSquat) f.shAerial = 0;
   if (act !== Act.Attack && act !== Act.Grabbing) f.move = -1;
   f.charge = 0;
 }
@@ -488,6 +489,10 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
       groundMovement(s, f, cur, dx);
       return;
     case Act.JumpSquat:
+      if (f.shAerial) {
+        groundFriction(f, st.traction);
+        if (f.actFrame < st.jumpSquat) return;
+      }
       // Specials / grab out of jump squat. With tap-jump (Up = Jump) Attack/Smash here cancel the jump into
       // up tilt / up smash, so up-attacks stay usable on keyboard.
       if (pressed(s, f, IN_SPECIAL) >= 0 || pressed(s, f, IN_GRAB) >= 0) {
@@ -505,13 +510,21 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
       }
       groundFriction(f, st.traction);
       if (f.actFrame >= st.jumpSquat) {
-        const full = (cur & IN_JUMP) !== 0;
+        const sh = f.shAerial;
+        const full = (cur & IN_JUMP) !== 0 && !sh;
         f.vy = full ? st.jumpV : st.hopV;
         f.vx = clamp(f.vx + dx * st.airAccel * 4, -st.airSpeed, st.airSpeed);
         f.grounded = 0;
         f.platform = -1;
         setAct(f, Act.Air);
         emit(s, EvType.Jump, f.x, f.y);
+        if (sh) {
+          const dy = dirY(cur);
+          let mv: number = Mv.NAir;
+          if (dy < 0) mv = Mv.DAir;
+          else if (dx !== 0) mv = dx === f.facing ? Mv.FAir : Mv.BAir;
+          startMove(s, f, mv);
+        }
       }
       return;
     case Act.Land:
@@ -758,6 +771,15 @@ function groundActions(s: GameState, f: FighterState, cur: number, fromJumpSquat
     return true;
   }
   if (fromJumpSquat) return false;
+  // Short-hop aerial macro: Jump + Attack on the same frame (without Up, so W's tap-jump up tilt still works)
+  const jp = pressed(s, f, IN_JUMP);
+  const ap = pressed(s, f, IN_ATTACK);
+  if (jp >= 0 && ap >= 0 && abs(jp - ap) <= 1 && !(cur & IN_UP)) {
+    consume(s, f);
+    setAct(f, Act.JumpSquat);
+    f.shAerial = 1;
+    return true;
+  }
   const smashPress = pressed(s, f, IN_SMASH) >= 0;
   const atk = smashPress ? s.frame : pressed(s, f, IN_ATTACK);
   if (atk >= 0) {
@@ -1198,13 +1220,23 @@ function tryLedgeGrab(s: GameState, f: FighterState): void {
   const scale = def(f).stats.scale;
   for (let i = 0; i < ledges.length; i++) {
     const L = ledges[i];
-    let occupied = false;
-    for (const o of s.fighters) if (o !== f && o.act === Act.LedgeHang && o.ledge === i) occupied = true;
-    if (occupied) continue;
+    let occupant: FighterState | null = null;
+    for (const o of s.fighters) if (o !== f && o.act === Act.LedgeHang && o.ledge === i) occupant = o;
     const outward = (f.x - L.x) * L.dir; // >0 = outside the stage
     const below = L.y - f.y;
     const h = Math.trunc((m(1.9) * scale) / 1000);
     if (outward > -m(0.25) && outward < m(0.8) && below > m(0.6) && below < h) {
+      if (occupant) {
+        // Ledge trump: the newcomer takes the ledge and pops the hanger off (no invulnerability for them)
+        if (occupant.actFrame < 10) continue;
+        setAct(occupant, Act.Air);
+        occupant.ledge = -1;
+        occupant.ledgeCooldown = 40;
+        occupant.invuln = 0;
+        occupant.vx = L.dir * m(0.06);
+        occupant.vy = m(0.12);
+        occupant.y -= m(0.3);
+      }
       grabLedge(s, f, i);
       return;
     }
