@@ -6,7 +6,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173',
     viewport: { width: 1280, height: 720 },
-    launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
   },
   webServer: [
     {

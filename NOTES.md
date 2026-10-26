@@ -3,6 +3,15 @@
 Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under "Log".
 
 ## Log
+- 2026-10-26 (OpenAI Codex), step 1: read architecture, sim, fighter data, renderer, input/CPU, UI/story and tests.
+  Added render-only pose crossfades and actual-clock interpolation (fixes hitlag/charge/grab sampling), bounded small
+  correction smoothing, respawn resets, exponential facing/aura/particle damping; removed Dangle/camera hot-path
+  vector/quaternion allocations. Projectiles/beam lengths interpolate too. Local font subsets avoid blocked remote
+  font requests; explicit empty favicon avoids missing-asset errors. Playwright supports an executable-path override. Next: deterministic movement/buffering and authored recovery/locomotion polish.
+  Initial shell fetch was blocked; network-enabled fetch revealed PR #5 (7 newer commits). Fast-forwarded to b0c4adc
+  and reread online/rollback, updated gameplay/AI and new tests before continuing.
+  Validation: 60 unit tests, TypeScript, production build and all 6 e2e tests pass with system Chromium.
+  Push blocked by automatic approval review despite the pasted request asking for commit + push; no remote writes made.
 - 2026-10-24 (Claude Code): sim core, fighters, rules, tests; AGENTS.md added (kept in sync with CLAUDE.md by a test).
   GitHub push returned 403 (Claude GitHub App lacks access to the repo) — commits are local until access is fixed.
 - 2026-10-24 (Claude Code): Milestone 1 complete — renderer, input/remap/key test, gamepads, CPU, HUDs, menus, SFX, training,

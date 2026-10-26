@@ -182,3 +182,13 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 
 ## Performance
 - Pixel ratio capped at 1.5, blob shadows (no shadow maps), toon material + inverted-hull outlines, DOM HUD.
+
+## Smoothness decisions (Codex, 2026-10-26)
+- Presentation keeps per-fighter pose history: 6f state crossfades, 3f attack fades capped at first active frame,
+  2f hit reactions; sample actual previous/current clip clocks (including charge/grab/hitlag), never extrapolate.
+- Small corrected snapshot positions (≤0.5 m) decay visually at 24/s; teleports, respawns and match setup reset history.
+- Camera/facing/aura/particle damping uses elapsed seconds. Dangle scratch vectors/quaternions are reused,
+  speed capped at 20 m/s and displacement >2 m discards drag. Pixel ratio remains capped at 1.5.
+- Start from fetched origin/main; online rollback tests and two-browser relay checks are required for sim changes.
+- Fonts use local Latin WOFF2 subsets (OFL licenses in public/fonts); Playwright can use an installed Chromium via
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH when the pinned browser is unavailable.

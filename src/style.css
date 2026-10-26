@@ -1,3 +1,7 @@
+/* Local WOFF2 subsets: no network font request during game/menu startup. Licenses in public/fonts. */
+@font-face { font-family: 'Bebas Neue'; font-style: normal; font-weight: 400; font-display: swap; src: url('../public/fonts/bebas-neue-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Rajdhani'; font-style: normal; font-weight: 500; font-display: swap; src: url('../public/fonts/rajdhani-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Rajdhani'; font-style: normal; font-weight: 700; font-display: swap; src: url('../public/fonts/rajdhani-latin-700-normal.woff2') format('woff2'); }
 :root {
   --bg: #0d0f1a;
   --panel: rgba(14, 16, 30, 0.86);

@@ -179,8 +179,6 @@ export interface DangleOpts {
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const tmpV = new THREE.Vector3();
-const tmpQ = new THREE.Quaternion();
-const tmpQ2 = new THREE.Quaternion();
 
 /** Render-only secondary motion chain (never affects gameplay). */
 export class Dangle {
@@ -189,6 +187,14 @@ export class Dangle {
   private dirs: THREE.Vector3[] = [];
   private prev: THREE.Vector3[] = [];
   private t = Math.random() * 10;
+  private initialized = false;
+  private velocity = new THREE.Vector3();
+  private bias = new THREE.Vector3();
+  private want = new THREE.Vector3();
+  private parentDown = new THREE.Vector3();
+  private rootQ = new THREE.Quaternion();
+  private parentQ = new THREE.Quaternion();
+  private deltaQ = new THREE.Quaternion();
   private o: Required<DangleOpts>;
 
   constructor(parent: THREE.Object3D, pos: [number, number, number], seg: number, readonly len: number, o: DangleOpts) {
@@ -210,26 +216,27 @@ export class Dangle {
   /** `facing` = ±1, `root` = the fighter root (character space). */
   update(dt: number, root: THREE.Object3D): void {
     if (dt <= 0) return;
+    dt = Math.min(dt, 0.1);
     this.t += dt;
     const o = this.o;
     root.updateMatrixWorld(true);
-    const rootQ = root.getWorldQuaternion(tmpQ2.identity()).clone();
+    const rootQ = root.getWorldQuaternion(this.rootQ);
     const k = 1 - Math.exp(-o.stiffness * dt);
     for (let i = 0; i < this.holders.length; i++) {
       const h = this.holders[i];
       const wp = h.getWorldPosition(tmpV.set(0, 0, 0));
-      const vel = wp.clone().sub(this.prev[i]).divideScalar(Math.max(dt, 1 / 240));
-      if (this.prev[i].lengthSq() === 0) vel.set(0, 0, 0);
+      const vel = this.velocity.copy(wp).sub(this.prev[i]).divideScalar(Math.max(dt, 1 / 240));
+      if (!this.initialized || wp.distanceToSquared(this.prev[i]) > 4) vel.set(0, 0, 0);
       this.prev[i].copy(wp);
       if (vel.lengthSq() > 400) vel.setLength(20);
       // Desired hanging direction: gravity + drag opposite to motion + character-space bias + flutter.
-      const bias = new THREE.Vector3(-o.bias[0], -o.bias[1], o.bias[2]).applyQuaternion(rootQ);
+      const bias = this.bias.set(-o.bias[0], -o.bias[1], o.bias[2]).applyQuaternion(rootQ);
       const flutter = Math.sin(this.t * 3.1 + i * 1.3) * o.flutter;
-      const want = DOWN.clone()
+      const want = this.want.copy(DOWN)
         .multiplyScalar(o.gravity)
         .addScaledVector(vel, -o.drag)
         .add(bias)
-        .add(new THREE.Vector3(0, 0, flutter).applyQuaternion(rootQ));
+        .add(tmpV.set(0, 0, flutter).applyQuaternion(rootQ));
       if (want.lengthSq() < 1e-6) want.copy(DOWN);
       want.normalize();
       this.dirs[i].lerp(want, k).normalize();
@@ -237,12 +244,13 @@ export class Dangle {
       // Keep the parent's twist: rotate the parent's down axis onto dir, on top of the parent orientation.
       const parent = h.parent!;
       parent.updateWorldMatrix(true, false);
-      const pq = parent.getWorldQuaternion(tmpQ).clone();
-      const pd = DOWN.clone().applyQuaternion(pq);
-      const delta = new THREE.Quaternion().setFromUnitVectors(pd, this.dirs[i]);
+      const pq = parent.getWorldQuaternion(this.parentQ);
+      const pd = this.parentDown.copy(DOWN).applyQuaternion(pq);
+      const delta = this.deltaQ.setFromUnitVectors(pd, this.dirs[i]);
       const wq = delta.multiply(pq);
       h.quaternion.copy(pq.invert().multiply(wq));
       h.updateMatrixWorld(true);
     }
+    this.initialized = true;
   }
 }
