@@ -75,18 +75,44 @@ function body(kit: Kit, lk: FighterLook, o: BodyOpts): void {
   kit.box(B.Head, [0.13 * hk, 0.08, 0.15 * hk], skin, { pos: [0.04, 0.045, 0], round: 0.035, line: 0.012 });
   kit.sphere(B.Head, 0.028, skin, { pos: [-0.005, 0.1, 0.112 * hk], scale: [0.6, 1, 0.5], line: 0.01 });
   kit.sphere(B.Head, 0.028, skin, { pos: [-0.005, 0.1, -0.112 * hk], scale: [0.6, 1, 0.5], line: 0.01 });
-  if (!o.noFace) {
-    kit.cone(B.Head, 0.018, 0.045, skin, { pos: [0.125 * hk, 0.095, 0], rot: [0, 0, -Math.PI / 2], line: 0.008 });
-    kit.box(B.Head, [0.01, 0.007, 0.045], flatMat(0x2a1414), { pos: [0.118 * hk, 0.05, 0], line: 0 });
-  }
-  // Eyes
+  if (!o.noFace) kit.cone(B.Head, 0.018, 0.045, skin, { pos: [0.125 * hk, 0.095, 0], rot: [0, 0, -Math.PI / 2], line: 0.008 });
+  // Faces: separate groups (normal / hurt / shout / blink) so the renderer can swap expressions.
+  const head = kit.bones[B.Head];
+  const mk = () => {
+    const g = new THREE.Group();
+    head.add(g);
+    return g;
+  };
+  const faces = { normal: mk(), hurt: mk(), shout: mk(), blink: mk() };
+  kit.faces = faces;
   const eyeMat = o.eyeGlow ? flatMat(o.eyeColor ?? 0xffffff) : flatMat(0xffffff);
+  const irisMat = flatMat(o.eyeColor ?? 0x1a1a24);
+  const browMat = flatMat(shade(lk.hair, 0.8));
+  const mouthMat = flatMat(0x2a1414);
+  const ex = 0.108 * hk;
+  const browAng = o.browAngle ?? 0.35;
   for (const side of [1, -1]) {
-    kit.sphere(B.Head, 0.024, eyeMat, { pos: [0.108 * hk, 0.13, side * 0.044], scale: [0.35, 0.9, 1], line: 0.006 });
-    if (!o.eyeGlow) kit.sphere(B.Head, 0.014, flatMat(o.eyeColor ?? 0x1a1a24), { pos: [0.117 * hk, 0.128, side * 0.044], scale: [0.4, 1, 1], line: 0 });
-    // Brows
-    const a = (o.browAngle ?? 0.35) * side;
-    kit.box(B.Head, [0.016, 0.014, 0.055], flatMat(shade(lk.hair, 0.8)), { pos: [0.118 * hk, 0.165, side * 0.045], rot: [a, 0, 0], line: 0, round: 0.004 });
+    const z = side * 0.044;
+    // normal
+    kit.sphere(faces.normal, 0.024, eyeMat, { pos: [ex, 0.13, z], scale: [0.35, 0.9, 1], line: 0.006 });
+    if (!o.eyeGlow) kit.sphere(faces.normal, 0.014, irisMat, { pos: [ex + 0.009, 0.128, z], scale: [0.4, 1, 1], line: 0 });
+    kit.box(faces.normal, [0.016, 0.014, 0.055], browMat, { pos: [ex + 0.01, 0.165, side * 0.045], rot: [browAng * side, 0, 0], line: 0, round: 0.004 });
+    // shout: wide eyes, small irises, furious brows
+    kit.sphere(faces.shout, 0.027, eyeMat, { pos: [ex, 0.13, z], scale: [0.35, 1.05, 1.05], line: 0.006 });
+    if (!o.eyeGlow) kit.sphere(faces.shout, 0.009, irisMat, { pos: [ex + 0.01, 0.13, z], scale: [0.4, 1, 1], line: 0 });
+    kit.box(faces.shout, [0.016, 0.016, 0.06], browMat, { pos: [ex + 0.01, 0.16, side * 0.045], rot: [(browAng + 0.3) * side, 0, 0], line: 0, round: 0.004 });
+    // hurt: squeezed shut ( > < ), brows up in pain
+    for (const t of [0.35, -0.35]) kit.box(faces.hurt, [0.008, 0.006, 0.035], o.eyeGlow ? eyeMat : browMat, { pos: [ex + 0.008, 0.13 + t * 0.02, z], rot: [t * side, 0, 0], line: 0 });
+    kit.box(faces.hurt, [0.016, 0.014, 0.055], browMat, { pos: [ex + 0.01, 0.17, side * 0.045], rot: [-0.35 * side, 0, 0], line: 0, round: 0.004 });
+    // blink: closed lids
+    kit.box(faces.blink, [0.008, 0.006, 0.04], browMat, { pos: [ex + 0.008, 0.125, z], line: 0 });
+    kit.box(faces.blink, [0.016, 0.014, 0.055], browMat, { pos: [ex + 0.01, 0.165, side * 0.045], rot: [browAng * side, 0, 0], line: 0, round: 0.004 });
+  }
+  if (!o.noFace) {
+    kit.box(faces.normal, [0.01, 0.007, 0.045], mouthMat, { pos: [0.118 * hk, 0.05, 0], line: 0 });
+    kit.box(faces.blink, [0.01, 0.007, 0.045], mouthMat, { pos: [0.118 * hk, 0.05, 0], line: 0 });
+    kit.box(faces.shout, [0.012, 0.045, 0.06], mouthMat, { pos: [0.115 * hk, 0.048, 0], round: 0.01, line: 0 });
+    kit.box(faces.hurt, [0.012, 0.03, 0.04], mouthMat, { pos: [0.116 * hk, 0.05, 0], rot: [0, 0, 0], round: 0.008, line: 0 });
   }
   // Arms
   for (const [arm, fore, hand] of SIDES) {

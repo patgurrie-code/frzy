@@ -71,7 +71,14 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
     return s.frame % Math.max(2, rate) === 0 ? IN_SPECIAL : 0;
   }
   // Grabbed: mash
-  if (me.act === Act.Grabbed) return s.frame % 3 === 0 ? IN_ATTACK | (s.frame % 6 ? IN_LEFT : IN_RIGHT) : 0;
+  if (me.act === Act.Grabbed) {
+    if (me.throwTech > 0 && level >= 3 && rand(s, port, 30, 100) < level * 9) return mem.prev & IN_GRAB ? 0 : IN_GRAB;
+    return s.frame % 3 === 0 ? IN_ATTACK | (s.frame % 6 ? IN_LEFT : IN_RIGHT) : 0;
+  }
+  // Burst out of long combos
+  if (me.act === Act.Hitstun && me.hitlag === 0 && me.combo >= 3 && me.ki >= 100 && !(s.mode === Mode.Versus && me.burstUsed) && level >= 5) {
+    if (rand(s, port, 31, 100) < level * 6) return mem.prev & IN_SPECIAL ? IN_GUARD : IN_GUARD | IN_SPECIAL;
+  }
   if (me.act === Act.Respawn) return 0;
 
   const tgt = target(s, me);
@@ -122,6 +129,13 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
 
   if (!tgt) return 0;
 
+  // Launcher follow-up (Versus): jump after a connected up tilt, then up-air near the victim
+  if (s.mode === Mode.Versus && level >= 4) {
+    if (me.act === Act.Attack && me.move === Mv.UTilt && me.hitGroups.some((g) => g !== 0) && me.actFrame > 10) return press(mem, IN_JUMP);
+    if (!me.grounded && me.act === Act.Air && tgt && tgt.act === Act.Hitstun && !tgt.grounded && abs(tgt.x - me.x) < 1.4 * M) {
+      return press(mem, (tgt.y > me.y + M / 2 ? IN_UP : 0) | IN_ATTACK);
+    }
+  }
   // Combos: keep pressing after a confirmed hit — jab chains, and special-cancel tilts / dash attacks
   if (me.act === Act.Attack && me.move >= 0 && level >= 3) {
     let hit = 0;
@@ -173,9 +187,11 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
   // Defence: shield when an opponent is attacking up close
   const threat = tgt.act === Act.Attack && adx < 2.4 * M && abs(dy) < 2 * M;
   if (threat && me.grounded && rand(s, port, 5, 100) < 4 + level * 4) {
-    mem.hold = IN_GUARD;
+    const low = tgt.grounded && (tgt.move === Mv.DTilt || tgt.move === Mv.DSmash || tgt.move === Mv.DashAttack);
+    const guessRight = rand(s, port, 32, 100) < 40 + level * 7;
+    mem.hold = IN_GUARD | (s.mode === Mode.Versus && low === guessRight ? IN_DOWN : 0);
     mem.holdUntil = s.frame + 10 + rand(s, port, 6, 12);
-    return IN_GUARD;
+    return mem.hold;
   }
   // Out of shield: grab back or let go
   if (me.act === Act.Shield) {

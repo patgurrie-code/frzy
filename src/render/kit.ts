@@ -44,6 +44,8 @@ export class Kit {
   private parts = new Map<THREE.Object3D, { geo: THREE.BufferGeometry; mat: THREE.Material }[]>();
   private lines = new Map<THREE.Object3D, THREE.BufferGeometry[]>();
   readonly dangles: Dangle[] = [];
+  /** Expression groups created by the design (render swaps visibility). */
+  faces?: { normal: THREE.Object3D; hurt: THREE.Object3D; shout: THREE.Object3D; blink: THREE.Object3D };
 
   constructor(readonly bones: THREE.Bone[], readonly lineScale = 1) {}
 

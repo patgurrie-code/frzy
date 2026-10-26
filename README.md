@@ -29,6 +29,10 @@ Fighters: KESTREL (brawler), TORVAL (ki-blaster), SERA (spear knight), VESHA (sh
 - Special + direction = 4 specials. **Smash + Special** = EX special (1 ki bar). **Guard + Special** (hold) = charge ki.
   **Attack + Special** together with 3 bars = SUPER. Mash Attack/Special in a beam clash.
 - Guard on the ground = shield (tap ←/→ roll, ↓ spot-dodge, Attack = grab); in the air = air dodge.
+  Guard right before a hit = **parry**. Tap Guard just before landing when launched = **tech**.
+- Versus: **Guard + Down** blocks lows (sweeps), standing Guard blocks overheads (jump-ins). Press Grab/Attack right after
+  being grabbed to **escape**. Up tilt **launches** — jump after it for an air combo. Hard hits **wall bounce**.
+  **Guard + Special while being comboed = BURST** (1 bar, once per round). A normal that hits → press Special to **cancel**.
 - Gamepads (standard mapping): stick/d-pad (up = jump), A attack, Y smash, B special, X jump, LB/LT guard, RB/RT grab,
   right stick = smash in a direction.
 - Esc pause (shows the controls) · Training: F1 hitboxes, F2 frame-step, F3 resume, F4 reset damage · ` FPS counter.

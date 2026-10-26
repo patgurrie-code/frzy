@@ -35,6 +35,7 @@ export const enum Mv {
   Jab2,
   Jab3,
   CmdThrow, // throw performed automatically after a command-grab special connects
+  Burst, // combo breaker (Guard + Special in hitstun)
   COUNT,
 }
 export const MOVE_COUNT = Mv.COUNT as number;
@@ -44,7 +45,7 @@ export const MOVE_NAMES: readonly string[] = [
   'Neutral Air', 'Forward Air', 'Back Air', 'Up Air', 'Down Air',
   'Neutral Special', 'Side Special', 'Up Special', 'Down Special',
   'Neutral Special EX', 'Side Special EX', 'Up Special EX', 'Down Special EX',
-  'Grab', 'Pummel', 'Forward Throw', 'Back Throw', 'Up Throw', 'Down Throw', 'Super', 'Dash Attack', 'Ledge Attack', 'Jab 2', 'Jab 3', 'Command Throw',
+  'Grab', 'Pummel', 'Forward Throw', 'Back Throw', 'Up Throw', 'Down Throw', 'Super', 'Dash Attack', 'Ledge Attack', 'Jab 2', 'Jab 3', 'Command Throw', 'Burst',
 ];
 
 export const enum Sfx {
@@ -81,6 +82,9 @@ export interface HitboxDef {
   shield?: number;
   /** Fixed knockback (ignores percent), used by multi-hit links. */
   fixedKb?: boolean;
+  /** Versus block level: 'mid' (default, any guard), 'low' (must crouch-guard), 'overhead' (must stand-guard).
+   *  Aerials are overheads vs grounded defenders automatically; down tilts/smashes default to 'low'. */
+  level?: 'mid' | 'low' | 'overhead';
 }
 
 export interface MotionKey {
@@ -199,6 +203,9 @@ export interface FighterAnims {
   roll: Anim;
   airDodge: Anim;
   hitstun: Anim;
+  hitHigh: Anim;
+  hitMid: Anim;
+  hitLow: Anim;
   tumble: Anim;
   ledge: Anim;
   getup: Anim;
@@ -210,6 +217,9 @@ export interface FighterAnims {
   beam: Anim;
   charge: Anim;
   knockdown: Anim;
+  crouchGuard: Anim;
+  /** Pre-round intro pose (render only; played during the Intro phase). */
+  intro?: Anim;
 }
 
 export interface FighterLook {

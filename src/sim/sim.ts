@@ -166,6 +166,9 @@ function resetRound(s: GameState): void {
     f.grab = -1;
     f.lastHitBy = -1;
     f.combo = f.comboDamage = 0;
+    f.burstUsed = 0;
+    f.wallBounced = 0;
+    f.guardLow = 0;
   }
 }
 
@@ -416,13 +419,16 @@ function updateFighter(s: GameState, f: FighterState, fighting: boolean): void {
       return;
   }
 
-  if (f.act === Act.Hitstun) {
+  if (f.act === Act.Hitstun && tryBurst(s, f, cur)) {
+    // burst started (handled below as a normal move)
+  } else if (f.act === Act.Hitstun) {
     f.hitstun--;
     if (f.hitstun <= 0) {
       setAct(f, f.grounded ? Act.Idle : Act.Air);
       if (f.grounded) f.combo = f.comboDamage = 0;
     }
   }
+  if (f.act !== Act.Hitstun && f.combo === 0) f.wallBounced = 0;
   if (f.act === Act.ShieldStun) {
     f.hitstun--;
     if (f.hitstun <= 0) setAct(f, cur & IN_GUARD ? Act.Shield : Act.Idle);
@@ -668,6 +674,29 @@ function approach(v: number, target: number, step: number): number {
   return v;
 }
 
+/** Versus block level of a hit. */
+function hitLevel(a: FighterState, h: HitboxDef): 'mid' | 'low' | 'overhead' {
+  if (h.level) return h.level;
+  if (!a.grounded && a.act === Act.Attack && isAerial(a.move)) return 'overhead';
+  if (a.act === Act.Attack && (a.move === Mv.DTilt || a.move === Mv.DSmash)) return 'low';
+  return 'mid';
+}
+
+/** Burst: Guard + Special while in hitstun (1 ki bar; once per round in Versus). */
+function tryBurst(s: GameState, f: FighterState, cur: number): boolean {
+  if (!(cur & IN_GUARD) || pressed(s, f, IN_SPECIAL) < 0) return false;
+  if (f.ki < KI_BAR || (s.mode === Mode.Versus && f.burstUsed)) return false;
+  consume(s, f);
+  f.ki -= KI_BAR;
+  f.burstUsed = 1;
+  f.kbx = f.kby = f.vx = f.vy = 0;
+  f.hitstun = 0;
+  startMove(s, f, Mv.Burst);
+  f.ex = 1;
+  emit(s, EvType.Burst, f.x, f.y + m(1), f.port);
+  return true;
+}
+
 function isNormal(move: number): boolean {
   return move <= Mv.DAir || move === Mv.DashAttack || move === Mv.Jab2 || move === Mv.Jab3;
 }
@@ -812,6 +841,7 @@ function startMove(s: GameState, f: FighterState, move: number): void {
 
 function updateShield(s: GameState, f: FighterState, cur: number): void {
   const st = def(f).stats;
+  f.guardLow = s.mode === Mode.Versus && cur & IN_DOWN ? 1 : 0;
   groundFriction(f, st.traction);
   if (s.mode !== Mode.Versus) f.shieldHp -= 14;
   if (f.shieldHp <= 0) {
@@ -837,7 +867,7 @@ function updateShield(s: GameState, f: FighterState, cur: number): void {
   if (f.actFrame > 2) {
     const r = tappedWithin(s, f, IN_RIGHT, 2);
     const l = tappedWithin(s, f, IN_LEFT, 2);
-    const dn = tappedWithin(s, f, IN_DOWN, 2);
+    const dn = s.mode !== Mode.Versus && tappedWithin(s, f, IN_DOWN, 2);
     if (r || l) {
       const dir = r ? 1 : -1;
       f.facing = -dir; // roll moves "backwards" relative to facing
@@ -1105,6 +1135,24 @@ function updateGrabbed(s: GameState, f: FighterState): void {
     setAct(f, f.grounded ? Act.Idle : Act.Air);
     return;
   }
+  // Throw escape: Grab or Attack within the tech window breaks a normal grab.
+  if (f.throwTech > 0) {
+    f.throwTech--;
+    if ((pressed(s, f, IN_GRAB, 3) >= 0 || pressed(s, f, IN_ATTACK, 3) >= 0) && g.act === Act.Grabbing) {
+      consume(s, f);
+      g.grab = -1;
+      f.grab = -1;
+      setAct(g, Act.Land);
+      g.landLag = 12;
+      setAct(f, Act.Land);
+      f.landLag = 12;
+      g.vx = -g.facing * m(0.12);
+      f.vx = -f.facing * m(0.12);
+      f.throwTech = 0;
+      emit(s, EvType.ThrowTech, (f.x + g.x) >> 1, f.y + m(1), f.port, g.port);
+      return;
+    }
+  }
   // Mash to escape: any new button press shortens the holder's timer.
   const cur = inp(f, s.frame);
   const prev = inp(f, s.frame - 1);
@@ -1245,13 +1293,23 @@ function moveAndCollide(s: GameState, f: FighterState): void {
 
   if (s.mode === Mode.Versus) {
     const lim = m(0.4);
-    if (f.x < st.wallL + lim) {
-      f.x = st.wallL + lim;
-      if (f.kbx < 0) f.kbx = -f.kbx >> 2;
-    }
-    if (f.x > st.wallR - lim) {
-      f.x = st.wallR - lim;
-      if (f.kbx > 0) f.kbx = -f.kbx >> 2;
+    for (const side of [-1, 1]) {
+      const wx = side < 0 ? st.wallL + lim : st.wallR - lim;
+      if ((side < 0 && f.x < wx) || (side > 0 && f.x > wx)) {
+        f.x = wx;
+        const into = f.kbx * side > 0;
+        if (into && f.act === Act.Hitstun && !f.wallBounced && abs(f.kbx) > m(0.12)) {
+          // Wall bounce: once per combo — pops the victim back out for a follow-up
+          f.wallBounced = 1;
+          f.kbx = -Math.trunc((f.kbx * 45) / 100);
+          f.kby = Math.max(f.kby, m(0.17));
+          f.vy = 0;
+          f.grounded = 0;
+          f.platform = -1;
+          f.hitstun += 16;
+          emit(s, EvType.WallBounce, f.x, f.y + m(1), f.port);
+        } else if (into) f.kbx = -f.kbx >> 2;
+      }
     }
   }
 
@@ -1648,7 +1706,8 @@ function resolveHits(s: GameState): void {
       const cmd = def(p.a).moves[p.a.move].grabThrow;
       startGrab(s, p.a, p.v);
       if (cmd !== undefined) {
-        // Command grab: go straight into the throw
+        // Command grab: go straight into the throw (cannot be teched)
+        p.v.throwTech = 0;
         setAct(p.a, Act.Attack);
         p.a.move = cmd;
         p.a.actFrame = 1;
@@ -1788,6 +1847,7 @@ function startGrab(s: GameState, a: FighterState, v: FighterState): void {
   a.grabTimer = GRAB_HOLD + Math.trunc(v.damage / 20);
   setAct(v, Act.Grabbed);
   v.grab = a.port;
+  v.throwTech = 8;
   holdVictim(a, v);
   emit(s, EvType.Grab, v.x, v.y + m(1), a.port, v.port);
 }
@@ -1872,8 +1932,17 @@ export function applyHit(
     emit(s, EvType.Parry, hx, hy, v.port, a.port);
     return;
   }
+  // Versus high/low: lows must be crouch-guarded, overheads stand-guarded (parries still beat both).
+  let guarded = v.act === Act.Shield || v.act === Act.ShieldStun;
+  if (guarded && !isThrow && s.mode === Mode.Versus && !isProjectile) {
+    const lvl = hitLevel(a, h);
+    if ((lvl === 'low' && !v.guardLow) || (lvl === 'overhead' && v.guardLow)) {
+      guarded = false;
+      emit(s, EvType.WrongGuard, hx, hy, a.port, v.port);
+    }
+  }
   // Shield / block
-  if (!isThrow && (v.act === Act.Shield || v.act === Act.ShieldStun)) {
+  if (!isThrow && guarded) {
     const sd = (dmg + (h.shield ?? 0)) * 100 * (s.mode === Mode.Versus ? 0 : 1);
     v.shieldHp -= sd;
     if (s.mode === Mode.Versus) v.health = Math.max(1, v.health - Math.trunc((dmg * VS_DMG_SCALE) / 8));
@@ -1965,6 +2034,22 @@ export function applyHit(
   let speed = Math.trunc((kb * LAUNCH_MUL) / 1000);
   let kbx = Math.trunc((icos(world) * speed) / 10000);
   let kby = Math.trunc((isin(world) * speed) / 10000);
+  let versusStun = -1;
+  if (s.mode === Mode.Versus && !isThrow && !h.fixedKb) {
+    if (a.act === Act.Attack && a.move === Mv.UTilt && v.grounded) {
+      // Launcher: straight up, long hitstun — jump after it for an air combo
+      kbx = facing * m(0.015);
+      kby = m(0.3);
+      speed = kby;
+      versusStun = 44;
+      emit(s, EvType.Launch, hx, hy, a.port, v.port);
+    } else if (!v.grounded && !a.grounded && a.act === Act.Attack && isAerial(a.move)) {
+      // Air combos: aerials on airborne victims carry them instead of sending them away
+      kbx = Math.trunc((kbx * 45) / 100) + facing * m(0.02);
+      kby = Math.max(Math.trunc((kby * 45) / 100), m(0.07));
+      versusStun = Math.max(18, 30 - v.combo * 2); // juggle decay
+    }
+  }
   if (v.grounded && kby < 0) {
     if (s.mode === Mode.Versus || kb < 80000) kby = 0;
     else kby = -Math.trunc((kby * 7) / 10); // spike on the ground: bounce
@@ -1972,10 +2057,17 @@ export function applyHit(
 
   let hitstun = Math.trunc((kb * 4) / 10000);
   if (h.hitstun !== undefined && (s.mode === Mode.Versus || h.fixedKb)) hitstun = h.hitstun;
+  if (versusStun >= 0 && (h.hitstun === undefined || versusStun > h.hitstun)) hitstun = versusStun;
+  if (s.mode === Mode.Versus && v.combo > 6) hitstun = Math.max(8, hitstun - (v.combo - 6) * 2); // juggle decay
   if (hitstun < 6) hitstun = 6;
   hitstun += bonusStun;
 
   setAct(v, Act.Hitstun);
+  {
+    // Reaction height from where the hit landed on the body
+    const rel = Math.trunc(((hy - v.y) * 1000) / vd.stats.scale);
+    v.hitHeight = rel > m(1.3) ? 0 : rel < m(0.6) ? 2 : 1;
+  }
   v.hitstun = hitstun;
   v.vx = 0;
   v.vy = 0;

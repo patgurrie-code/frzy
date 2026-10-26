@@ -1,6 +1,6 @@
 // TORVAL — heavy ki-blaster. Slow and heavy, long range ki attacks, huge knockback.
 import { FighterDef, MoveDef, Mv } from '../defs';
-import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, ProjKind, Sfx } from './common';
+import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, ProjKind, Sfx, burstMove } from './common';
 
 const stance = {
   f: 0,
@@ -89,7 +89,7 @@ moves[Mv.UTilt] = mb.move(
     { f: 26 },
   ],
   [
-    hb(7, 13, { bone: B.Head, at: [0, 0.55], r: 0.38, dmg: 10, bkb: 35, kbg: 95, angle: 90, hitstun: 22, sfx: Sfx.Ki }),
+    hb(7, 10, { bone: B.Spine2, at: [0.5, 0.05], r: 0.26, dmg: 5, bkb: 35, kbg: 90, angle: 85, hitstun: 22, group: 3 }), hb(7, 13, { bone: B.Head, at: [0, 0.55], r: 0.38, dmg: 10, bkb: 35, kbg: 95, angle: 90, hitstun: 22, sfx: Sfx.Ki }),
   ],
 );
 
@@ -101,7 +101,7 @@ moves[Mv.DTilt] = mb.move(
     { f: 8, r: { RightArm: 70, RightForeArm: 10, RightHand: 90 }, root: [0, -0.32] },
     { f: 22 },
   ],
-  [hb(8, 12, { bone: R, at: [0.1, -0.1], r: 0.24, dmg: 8, bkb: 45, kbg: 45, angle: 80, hitstun: 22, sfx: Sfx.Ki })],
+  [hb(8, 12, { bone: R, at: [0.1, -0.1], r: 0.24, dmg: 8, bkb: 45, kbg: 45, angle: 80, hitstun: 22, sfx: Sfx.Ki, level: 'low' })],
 );
 
 moves[Mv.FSmash] = mb.move(
@@ -421,6 +421,7 @@ moves[Mv.LedgeAttack] = mb.move(
 );
 
 moves[Mv.CmdThrow] = moves[Mv.FThrow];
+moves[Mv.Burst] = burstMove(mb);
 
 export const TORVAL: FighterDef = {
   id: 'torval',
@@ -451,6 +452,12 @@ export const TORVAL: FighterDef = {
     power: 96,
   },
   anims: {
+    intro: mb.anim([
+      { f: 0, r: { Spine: -45, Head: 20, RightArm: 60, RightForeArm: 100, LeftArm: 62, LeftForeArm: 105, LeftHand: 60 }, root: [0, -0.04] },
+      { f: 45, r: { Spine: -40 } },
+      { f: 75, r: { Spine: 0, Head: -5, RightArm: 20, LeftArm: 20, RightForeArm: 60, LeftForeArm: 60 }, root: [0, 0] },
+      { f: 100 },
+    ], 110),
     ...stateAnims(mb, true, { idlePeriod: 90, bob: 0.015 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 45, RightForeArm: 95, RightHand: 0, LeftArm: 48, LeftForeArm: 100, LeftHand: 60, Spine: 4, Head: -8, RightUpLeg: 8, LeftUpLeg: -8, RightLeg: -5, LeftLeg: -5 }, root: [0, 0] },

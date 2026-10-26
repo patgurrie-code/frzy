@@ -1,6 +1,6 @@
 // BRAKKA — giant grappler. Heaviest and slowest; armoured specials, a command grab, devastating throws.
 import { FighterDef, MoveDef, Mv } from '../defs';
-import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx } from './common';
+import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx, burstMove } from './common';
 
 const stance = {
   f: 0,
@@ -47,7 +47,7 @@ moves[Mv.Jab3] = mb.move(
   'Hammer Down',
   40,
   [{ f: 0, r: { RightArm: 178, LeftArm: 178, RightForeArm: 20, LeftForeArm: 20 } }, { f: 12, r: { RightArm: 60, LeftArm: 60, RightForeArm: 0, LeftForeArm: 0, Spine: -40 }, root: [0, -0.2] }, { f: 30 }],
-  [hb(12, 15, { bone: R, at: FIST, r: 0.32, dmg: 10, bkb: 60, kbg: 60, angle: 70, hitstun: 30, sfx: Sfx.Heavy })],
+  [hb(12, 15, { bone: R, at: FIST, r: 0.32, dmg: 10, bkb: 60, kbg: 60, angle: 70, hitstun: 30, sfx: Sfx.Heavy, level: 'overhead' })],
 );
 
 moves[Mv.FTilt] = mb.move(
@@ -61,7 +61,7 @@ moves[Mv.UTilt] = mb.move(
   'Overhead Clap',
   34,
   [{ f: 0 }, { f: 8, r: { RightArm: 178, LeftArm: 178, RightForeArm: 0, LeftForeArm: 0 } }, { f: 16, r: { RightArm: 170, LeftArm: 170 } }, { f: 28 }],
-  [hb(8, 13, { bone: R, at: FIST, r: 0.34, dmg: 11, bkb: 35, kbg: 98, angle: 90, hitstun: 22 })],
+  [hb(8, 11, { bone: B.Spine2, at: [0.5, 0.05], r: 0.26, dmg: 5, bkb: 35, kbg: 90, angle: 85, hitstun: 22, group: 3 }), hb(8, 13, { bone: R, at: FIST, r: 0.34, dmg: 11, bkb: 35, kbg: 98, angle: 90, hitstun: 22 })],
 );
 moves[Mv.DTilt] = mb.move(
   'Knee Crush',
@@ -220,6 +220,8 @@ moves[Mv.CmdThrow] = mb.move(
   { throwRelease: { f: 24, dmg: 18, bkb: 70, kbg: 75, angle: 80, ki: 25 } },
 );
 
+moves[Mv.Burst] = burstMove(mb);
+
 moves[Mv.Super] = mb.move(
   'Titanfall',
   92,
@@ -276,6 +278,16 @@ export const BRAKKA: FighterDef = {
     power: 90,
   },
   anims: {
+    intro: mb.anim([
+      { f: 0, r: { RightArm: 60, RightForeArm: 110, LeftArm: 30, LeftForeArm: 80, Spine: 5 }, root: [0, 0] },
+      { f: 10, r: { RightArm: 45, RightForeArm: 120 } },
+      { f: 20, r: { LeftArm: 60, LeftForeArm: 110, RightArm: 30, RightForeArm: 80 } },
+      { f: 30, r: { LeftArm: 45, LeftForeArm: 120 } },
+      { f: 40, r: { RightArm: 60, RightForeArm: 110, LeftArm: 30, LeftForeArm: 80 } },
+      { f: 60, r: { RightArm: 150, LeftArm: 150, RightForeArm: 40, LeftForeArm: 40, Spine: 25, Head: -40 }, root: [0, 0.02] },
+      { f: 85, r: { Spine: 20, Head: -35 } },
+      { f: 105 },
+    ], 110),
     ...stateAnims(mb, true, { idlePeriod: 48, bob: 0.04 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 95, RightForeArm: 120, LeftArm: 95, LeftForeArm: 120, RightHand: 0, Spine: 10, Head: -15, RightUpLeg: 25, LeftUpLeg: -25, RightLeg: -10, LeftLeg: -10 }, root: [0, -0.04] },

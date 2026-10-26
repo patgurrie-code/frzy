@@ -14,7 +14,7 @@ export interface AnimRef {
 const MOVE_CLIP_NAMES = [
   'Jab', 'FTilt', 'UTilt', 'DTilt', 'FSmash', 'USmash', 'DSmash', 'NAir', 'FAir', 'BAir', 'UAir', 'DAir',
   'NSpec', 'SSpec', 'USpec', 'DSpec', 'NSpecEx', 'SSpecEx', 'USpecEx', 'DSpecEx', 'Grab', 'Pummel',
-  'FThrow', 'BThrow', 'UThrow', 'DThrow', 'Super', 'DashAttack', 'LedgeAttack', 'Jab2', 'Jab3', 'CmdThrow',
+  'FThrow', 'BThrow', 'UThrow', 'DThrow', 'Super', 'DashAttack', 'LedgeAttack', 'Jab2', 'Jab3', 'CmdThrow', 'Burst',
 ];
 
 export function moveClipName(move: number): string {
@@ -77,8 +77,8 @@ export function fighterAnim(f: FighterState, d: FighterDef, out: AnimRef): AnimR
       break;
     case Act.Shield:
     case Act.ShieldStun:
-      anim = a.shield;
-      clip = 'shield';
+      anim = f.guardLow ? a.crouchGuard : a.shield;
+      clip = f.guardLow ? 'crouchGuard' : 'shield';
       break;
     case Act.Roll:
     case Act.SpotDodge:
@@ -94,8 +94,8 @@ export function fighterAnim(f: FighterState, d: FighterDef, out: AnimRef): AnimR
         anim = a.tumble;
         clip = 'tumble';
       } else {
-        anim = a.hitstun;
-        clip = 'hitstun';
+        anim = f.hitHeight === 0 ? a.hitHigh : f.hitHeight === 2 ? a.hitLow : a.hitMid;
+        clip = f.hitHeight === 0 ? 'hitHigh' : f.hitHeight === 2 ? 'hitLow' : 'hitMid';
       }
       break;
     case Act.Helpless:

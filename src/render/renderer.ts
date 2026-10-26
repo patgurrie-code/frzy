@@ -9,7 +9,7 @@ import { AnimRef, fighterAnim } from '../sim/pose';
 import { samplePoseF } from '../sim/anim';
 import { fighterJoints } from '../sim/sim';
 import { HURTBOXES, bonePoint, makeJoints, BONE_COUNT } from '../sim/skeleton';
-import { buildFighterModel, applyPose, FighterModel, setFlash } from './fighterModel';
+import { buildFighterModel, applyPose, FighterModel, setFlash, setExpression } from './fighterModel';
 import { tryLoadGlb, updateGlb } from './glbLoader';
 import { toonMat, outlined } from './toon';
 
@@ -270,6 +270,22 @@ export class GameRenderer {
           this.shake = Math.max(this.shake, 0.15);
           this.punch = Math.max(this.punch, 0.6);
           break;
+        case EvType.Burst:
+          this.spawnSpark(toM(e.x), toM(e.y), 2.4, 0xfff1a8, 22);
+          for (let i = 0; i < 18; i++) {
+            const a = (i / 18) * Math.PI * 2;
+            this.particle(toM(e.x), toM(e.y), Math.cos(a) * 11, Math.sin(a) * 11, 0xfff1a8, 0.07, 0.6, 16, 'streak');
+          }
+          this.shake = Math.max(this.shake, 0.3);
+          this.punch = Math.max(this.punch, 0.8);
+          break;
+        case EvType.WallBounce:
+          this.spawnSpark(toM(e.x), toM(e.y), 1.4, 0xffffff, 18, Math.PI / 2);
+          this.shake = Math.max(this.shake, 0.35);
+          break;
+        case EvType.Launch:
+          for (let i = 0; i < 10; i++) this.particle(toM(e.x) + (Math.random() - 0.5) * 0.4, toM(e.y), (Math.random() - 0.5) * 2, 10 + Math.random() * 6, 0xffffff, 0.04, 0.7, 14, 'streak');
+          break;
         case EvType.CounterHit:
           this.spawnSpark(toM(e.x), toM(e.y), 1.1, 0xff4d4d, 16);
           break;
@@ -410,6 +426,11 @@ export class GameRenderer {
       fighterAnim(f, def, this.ref);
       let frame = this.ref.frame;
       if (p.act === f.act && p.move === f.move && p.actFrame !== f.actFrame && f.hitlag === 0) frame = f.actFrame - 1 + alpha;
+      // Pre-round intro pose (render only; fighters are intangible during the intro anyway)
+      if (cur.phase === 0 && f.act === Act.Idle && def.anims.intro) {
+        this.ref.anim = def.anims.intro;
+        frame = cur.phaseTimer - 1 + alpha;
+      }
       samplePoseF(this.ref.anim, Math.max(0, frame), this.rot, this.rootOff);
       applyPose(model, this.rot, this.rootOff);
       updateGlb(model, this.ref.clip, frame);
@@ -434,6 +455,23 @@ export class GameRenderer {
       const superGlow = cur.freeze > 0 && cur.freezeOwner === f.port ? 0.35 + Math.sin(this.time * 25) * 0.15 : 0;
       const parryGlow = f.invuln > 0 && f.act === Act.Attack ? 0.15 : 0;
       setFlash(model, Math.max(hitFlash, superGlow, parryGlow));
+      // Expressions: hurt when hit, shout while attacking/charging/super, random blinks otherwise
+      let expr: 'normal' | 'hurt' | 'shout' | 'blink' = 'normal';
+      const hurt = f.act === Act.Hitstun || f.act === Act.Dizzy || f.act === Act.Grabbed || f.act === Act.Dead || (f.act === Act.Land && f.landLag >= 20);
+      if (hurt) expr = 'hurt';
+      else if (f.act === Act.KiCharge || f.act === Act.Beam || (cur.freeze > 0 && cur.freezeOwner === f.port)) expr = 'shout';
+      else if (f.act === Act.Attack && f.move >= 0) {
+        const mv = def.moves[f.move];
+        if (mv.hitboxes.some((h) => f.actFrame >= h.start - 2 && f.actFrame <= h.end + 2) || mv.projectile || f.charge > 0) expr = 'shout';
+      }
+      if (expr === 'normal') {
+        model.blinkAt -= dt;
+        if (model.blinkAt < 0) {
+          expr = 'blink';
+          if (model.blinkAt < -0.12) model.blinkAt = 2 + Math.random() * 3.5;
+        }
+      }
+      setExpression(model, expr);
       const shielding = f.act === Act.Shield || f.act === Act.ShieldStun;
       model.shield.visible = shielding;
       if (shielding) {

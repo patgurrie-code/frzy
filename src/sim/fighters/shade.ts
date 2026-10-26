@@ -1,6 +1,6 @@
 // VESHA — shadow ninja. Lightest and fastest; teleports, twin blades, a mirror counter. Dies early.
 import { FighterDef, MoveDef, Mv } from '../defs';
-import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx } from './common';
+import { B, MoveBuilder, hb, grabBox, proj, mv, makeEx, stateAnims, m, Sfx, burstMove } from './common';
 
 const stance = {
   f: 0,
@@ -77,7 +77,7 @@ moves[Mv.UTilt] = mb.move(
   'Rising Edge',
   22,
   [{ f: 0 }, { f: 4, r: slash('Right', 175) }, { f: 9, r: slash('Right', 160) }, { f: 16 }],
-  [hb(4, 8, { bone: R, at: BLADE, r: 0.18, dmg: 6, bkb: 30, kbg: 105, angle: 90, hitstun: 20 })],
+  [hb(4, 7, { bone: B.Spine2, at: [0.5, 0.05], r: 0.26, dmg: 5, bkb: 35, kbg: 90, angle: 85, hitstun: 22, group: 3 }), hb(4, 8, { bone: R, at: BLADE, r: 0.18, dmg: 6, bkb: 30, kbg: 105, angle: 90, hitstun: 20 })],
 );
 moves[Mv.DTilt] = mb.move(
   'Low Slice',
@@ -248,6 +248,7 @@ moves[Mv.DThrow] = mb.move(
   { throwRelease: { f: 11, dmg: 5, bkb: 60, kbg: 40, angle: 80, ki: 10 } },
 );
 moves[Mv.CmdThrow] = moves[Mv.FThrow];
+moves[Mv.Burst] = burstMove(mb);
 
 moves[Mv.Super] = mb.move(
   'Eclipse: Thousand Cuts',
@@ -284,7 +285,7 @@ moves[Mv.DashAttack] = mb.move(
   'Sliding Cut',
   26,
   [{ f: 0, r: { ...slash('Right', 90), Spine: -40 }, root: [0, -0.3] }, { f: 12 }, { f: 20 }],
-  [hb(4, 10, { bone: R, at: BLADE, r: 0.2, dmg: 7, bkb: 40, kbg: 55, angle: 60 })],
+  [hb(4, 10, { bone: R, at: BLADE, r: 0.2, dmg: 7, bkb: 40, kbg: 55, angle: 60, level: 'low' })],
   { slide: true },
 );
 moves[Mv.LedgeAttack] = mb.move(
@@ -324,6 +325,12 @@ export const VESHA: FighterDef = {
     power: 118,
   },
   anims: {
+    intro: mb.anim([
+      { f: 0, r: { Spine: -50, Head: 40, RightArm: 60, LeftArm: 60, RightForeArm: 130, LeftForeArm: 130, RightUpLeg: 100, RightLeg: -140, LeftUpLeg: 70, LeftLeg: -140 }, root: [0, -0.55] },
+      { f: 45, r: { Head: 30 }, root: [0, -0.55] },
+      { f: 65, r: { Spine: -20, RightUpLeg: 40, LeftUpLeg: -20, RightLeg: -60, LeftLeg: -30 }, root: [0, 0.1] },
+      { f: 90 },
+    ], 110),
     ...stateAnims(mb, false, { idlePeriod: 40, bob: 0.025, ninjaRun: true }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 50, RightForeArm: 130, LeftArm: 55, LeftForeArm: 128, RightHand: -80, LeftHand: -80, Spine: 2, Head: 18, RightUpLeg: 6, LeftUpLeg: -6, RightLeg: -4, LeftLeg: -4 }, root: [0, 0] },
