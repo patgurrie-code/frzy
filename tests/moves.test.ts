@@ -179,3 +179,37 @@ describe('defence & combo systems', () => {
     expect(f.invuln).toBeGreaterThan(0);
   });
 });
+
+describe('platform extras', () => {
+  it('Jump + Attack together = short-hop aerial', () => {
+    const g = game([0, 1]);
+    hold(g, [IN_JUMP | IN_ATTACK, 0], 1);
+    hold(g, [0, 0], 6);
+    expect(g.fighters[0].grounded).toBe(0);
+    expect(g.fighters[0].move).toBe(Mv.NAir);
+  });
+
+  it('ledge trump: grabbing an occupied ledge pops the hanger off', () => {
+    const g = game([0, 1]);
+    const [a, b] = g.fighters;
+    // b hangs on the right ledge
+    b.x = 68000;
+    b.y = -12000;
+    b.grounded = 0;
+    b.platform = -1;
+    b.act = Act.Air;
+    b.vy = -100;
+    hold(g, [0, 0], 2);
+    expect(b.act).toBe(Act.LedgeHang);
+    hold(g, [0, 0], 15);
+    a.x = 69000;
+    a.y = -11000;
+    a.grounded = 0;
+    a.platform = -1;
+    a.act = Act.Air;
+    a.vy = -100;
+    hold(g, [0, 0], 2);
+    expect(a.act).toBe(Act.LedgeHang);
+    expect(b.act).not.toBe(Act.LedgeHang);
+  });
+});

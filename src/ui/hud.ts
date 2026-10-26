@@ -85,6 +85,7 @@ export class Hud {
         );
       });
       this.root.append(row);
+      this.root.append(el(`<div class="combo combo-0 pf-combo" data-k="combo0"></div>`), el(`<div class="combo combo-1 pf-combo" data-k="combo1"></div>`));
     }
     this.root.querySelectorAll<HTMLElement>('[data-k]').forEach((n) => (this.nodes[n.dataset.k!] = n));
   }
@@ -217,6 +218,15 @@ export class Hud {
         if (f.hitlag > 0 && f.act === Act.Hitstun) dmg.classList.add('shake');
         else dmg.classList.remove('shake');
         n['stk' + i].innerHTML = s.training ? '∞' : '<i></i>'.repeat(Math.max(0, f.stocks));
+        // Combo counter on the attacker's side (2-player layout; with 3–4 players it sits on the victim's side)
+        const side = s.fighters.length === 2 ? 1 - i : i % 2;
+        const combo = n['combo' + side];
+        if (combo) {
+          if (f.combo >= 2 && f.act === Act.Hitstun) {
+            combo.innerHTML = `<b>${f.combo}</b> HITS <small>${Math.round(f.comboDamage)}%</small>`;
+            combo.classList.add('show');
+          } else if (!s.fighters.some((g) => g.combo >= 2 && g.act === Act.Hitstun)) combo.classList.remove('show');
+        }
         this.updateKi(f.ki, n['ki' + i]);
       });
     }

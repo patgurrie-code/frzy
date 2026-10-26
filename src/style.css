@@ -275,3 +275,4 @@ button.ch-card.done { border-color: var(--accent); }
 .on-tag { font-weight: 700; color: var(--muted); letter-spacing: 2px; }
 .on-empty { color: var(--muted); font-style: italic; }
 button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.pf-combo { top: 110px; } .combo small { font-size: 22px; color: #fff; margin-left: 6px; }
