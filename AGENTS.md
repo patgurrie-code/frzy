@@ -182,3 +182,31 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 
 ## Performance
 - Pixel ratio capped at 1.5, blob shadows (no shadow maps), toon material + inverted-hull outlines, DOM HUD.
+
+## Smoothness decisions (Codex, 2026-10-26)
+- Presentation keeps per-fighter pose history: 6f state crossfades, 3f attack fades capped at first active frame,
+  2f hit reactions; sample actual previous/current clip clocks (including charge/grab/hitlag), never extrapolate.
+- Small corrected snapshot positions (≤0.5 m) decay visually at 24/s; teleports, respawns and match setup reset history.
+- Camera/facing/aura/particle damping uses elapsed seconds. Dangle scratch vectors/quaternions are reused,
+  speed capped at 20 m/s and displacement >2 m discards drag. Pixel ratio remains capped at 1.5.
+- Start from fetched origin/main; online rollback tests and two-browser relay checks are required for sim changes.
+- Fonts use local Latin WOFF2 subsets (OFL licenses in public/fonts); Playwright can use an installed Chromium via
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH when the pinned browser is unavailable.
+- Protocol 2: input buffer is 8f; released Guard taps can buffer shield on recovery. Walk reaches speed in 3 ticks,
+  dash ramps in 3 ticks, run changes/turnarounds use traction rather than velocity snaps. Jump squat carries held
+  momentum; air drift bleeds excess speed gradually; air jumps steer rather than erase horizontal velocity.
+- Online interpolation reads the corrected preceding rollback snapshot; stalls hold the current state and retain
+  keyboard latches until input is scheduled. Blur clears held and latched keys.
+- Protocol 3: MoveBuilder appends recovery/overshoot/stance keys only AFTER all authored keys and active/release
+  frames. Active-pose signatures against b0c4adc lock melee/projectile/throw poses, definitions and move timings.
+  Jabs gain 1f anticipation in explicitly overwritten arm channels (no inherited root/spine changes on hit frames).
+- Walk stride = 1.6 m × scale/cycle, run = 2.2 m × scale/cycle; integer key retiming follows nominal fighter speeds.
+  Walk swings opposite arms; take-off compresses over jumpSquat; jump apex extends and lands dip then settle.
+  These reduce sliding, but are not full foot-lock IK.
+- Normal hitlag = floor((floor(damage × 55/100) + 4) × hitlagMultiplier/100), capped at 18f (was 65/100 +5, cap20).
+  Parry/counter freezes, knockback, hitstun, landing lag, shield stun and move recovery durations stay unchanged.
+- Update fighter world matrices once before dangles (avoid a full recursive traversal per chain); trail points are pooled.
+- Stage/background meshes are merged by material once during setup; benchmark with scripts/measure-render.mjs
+  against production previews, one browser at a time. Software WebGL fps does not establish laptop GPU performance.
+- Extended-length EX variants extend their firing-pose hold and recovery tail together (Kestrel Ki Lance),
+  while preserving original spawn/active samples.

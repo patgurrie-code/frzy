@@ -1,14 +1,14 @@
 // three.js renderer. Reads sim state (previous + current for interpolation); never mutates it.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { FX } from '../sim/fixed';
 import { FIGHTERS } from '../sim/fighters';
 import { STAGES, StageDef } from '../sim/stage';
 import { Act, EvType, GameState, Mode, SimEvent } from '../sim/state';
 import { ProjKind, FighterLook } from '../sim/defs';
-import { AnimRef, fighterAnim } from '../sim/pose';
-import { samplePoseF } from '../sim/anim';
+import { PoseBlend, VisualPosition, damping } from './presentation';
 import { fighterJoints } from '../sim/sim';
-import { HURTBOXES, bonePoint, makeJoints, BONE_COUNT } from '../sim/skeleton';
+import { HURTBOXES, bonePoint, makeJoints } from '../sim/skeleton';
 import { buildFighterModel, applyPose, FighterModel, setFlash, setExpression } from './fighterModel';
 import { tryLoadGlb, updateGlb } from './glbLoader';
 import { toonMat, outlined } from './toon';
@@ -39,9 +39,10 @@ export class GameRenderer {
   private parts: { mesh: THREE.Mesh; vx: number; vy: number; life: number; max: number; w: number; len: number; kind: 'streak' | 'dust' }[] = [];
   private camPos = new THREE.Vector3(0, 3, 30);
   private camLook = new THREE.Vector3(0, 2, 0);
-  private rot = new Float32Array(BONE_COUNT);
-  private rootOff = new Float32Array(2);
-  private ref: AnimRef = { anim: FIGHTERS[0].anims.idle, frame: 0, clip: '' };
+  private poses: PoseBlend[] = [];
+  private positions: VisualPosition[] = [];
+  private camTarget = new THREE.Vector3();
+  private lookTarget = new THREE.Vector3();
   private stage: StageDef = STAGES[0];
   private time = 0;
   showBoxes = false;
@@ -50,8 +51,9 @@ export class GameRenderer {
   private hitInst: THREE.InstancedMesh;
   private dummy = new THREE.Object3D();
   private joints = makeJoints();
-  private trails: { pts: THREE.Vector3[]; mesh: THREE.Mesh; geo: THREE.BufferGeometry; width: number }[] = [];
+  private trails: { pts: THREE.Vector3[]; spare: THREE.Vector3[]; mesh: THREE.Mesh; geo: THREE.BufferGeometry; width: number }[] = [];
   private trailJoints = makeJoints();
+  private trailPoint = new THREE.Vector3();
   private clashFx: THREE.Mesh;
   private bgFar: THREE.Group = new THREE.Group();
 
@@ -132,7 +134,7 @@ export class GameRenderer {
       );
       mesh.frustumCulled = false;
       this.scene.add(mesh);
-      return { pts: [] as THREE.Vector3[], mesh, geo, width: 0.15 };
+      return { pts: [] as THREE.Vector3[], spare: Array.from({ length: 10 }, () => new THREE.Vector3()), mesh, geo, width: 0.15 };
     });
     this.models = s.fighters.map((f) => {
       const base = FIGHTERS[f.char];
@@ -143,6 +145,10 @@ export class GameRenderer {
       void tryLoadGlb(def.id, m, 1.8 * (def.stats.scale / 1000)).catch(() => false);
       return m;
     });
+    this.poses = s.fighters.map((f) => new PoseBlend(FIGHTERS[f.char]));
+    this.positions = s.fighters.map(() => new VisualPosition());
+    this.camLook.set(0, 2, 0);
+    this.shake = this.punch = 0;
     this.buildStage(STAGES[s.stage], s.mode === Mode.Versus);
     this.camPos.set(0, 3, 30);
   }
@@ -237,6 +243,33 @@ export class GameRenderer {
         wall.position.set(toM(wx), 6, 0);
         this.stageGroup.add(wall);
       }
+    }
+    this.batchStatic(this.stageGroup);
+    this.batchStatic(this.bgFar);
+  }
+
+  /** Static stage meshes share materials: batch once at setup instead of submitting every tile/pillar. */
+  private batchStatic(group: THREE.Group): void {
+    group.updateMatrixWorld(true);
+    const inverse = group.matrixWorld.clone().invert();
+    const transform = new THREE.Matrix4();
+    const batches = new Map<THREE.Material, { geos: THREE.BufferGeometry[]; order: number }>();
+    group.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || Array.isArray(mesh.material)) return;
+      let batch = batches.get(mesh.material);
+      if (!batch) { batch = { geos: [], order: mesh.renderOrder }; batches.set(mesh.material, batch); }
+      transform.multiplyMatrices(inverse, mesh.matrixWorld);
+      batch.geos.push(mesh.geometry.clone().applyMatrix4(transform));
+    });
+    group.clear();
+    for (const [mat, batch] of batches) {
+      const geometry = mergeGeometries(batch.geos, false);
+      if (!geometry) throw new Error('Incompatible static stage geometry');
+      const mesh = new THREE.Mesh(geometry, mat);
+      mesh.renderOrder = batch.order;
+      group.add(mesh);
+      for (const g of batch.geos) g.dispose();
     }
   }
 
@@ -360,14 +393,14 @@ export class GameRenderer {
       p.mesh.position.y += p.vy * dt;
       const mat = p.mesh.material as THREE.MeshBasicMaterial;
       if (p.kind === 'streak') {
-        p.vx *= 1 - dt * 6;
-        p.vy *= 1 - dt * 6;
+        p.vx *= Math.exp(-dt * 6);
+        p.vy *= Math.exp(-dt * 6);
         p.mesh.rotation.z = Math.atan2(p.vy, p.vx);
         p.mesh.scale.set(p.len * (1 - t * 0.6), p.w * (1 - t), 1);
         mat.opacity = 1 - t;
       } else {
-        p.vx *= 1 - dt * 3;
-        p.vy *= 1 - dt * 2;
+        p.vx *= Math.exp(-dt * 3);
+        p.vy *= Math.exp(-dt * 2);
         p.mesh.scale.setScalar(p.w + t * 0.25);
         mat.opacity = 0.45 * (1 - t);
       }
@@ -389,6 +422,8 @@ export class GameRenderer {
   }
 
   render(prev: GameState, cur: GameState, alpha: number, dt: number): void {
+    dt = Math.max(0, Math.min(dt, 0.1));
+    alpha = Math.max(0, Math.min(alpha, 1));
     this.time += dt;
     const st = this.stage;
     const n = cur.fighters.length;
@@ -410,8 +445,11 @@ export class GameRenderer {
       if (dead) continue;
       const teleport = Math.abs(f.x - p.x) > 2 * FX || Math.abs(f.y - p.y) > 2 * FX;
       const t = teleport ? 1 : alpha;
-      let x = toM(lerp(p.x, f.x, t));
-      const y = toM(lerp(p.y, f.y, t));
+      const reset = teleport || p.act === Act.Dead || f.act === Act.Respawn && p.act !== Act.Respawn;
+      const position = this.positions[i];
+      position.sample(p, f, cur.frame, t, dt, reset);
+      let x = position.x;
+      const y = position.y;
       if (f.hitlag > 0 && f.act === Act.Hitstun) x += Math.sin(this.time * 90) * 0.04;
       model.root.position.set(x, y, 0);
       // 3/4 view: turn the model a little towards the camera (render-only) so faces and outfits read.
@@ -421,19 +459,13 @@ export class GameRenderer {
       let dy = targetYaw - cy;
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
-      model.root.rotation.y = Math.abs(dy) < 0.01 || dt === 0 ? targetYaw : cy + dy * Math.min(1, dt * 30);
+      model.root.rotation.y = Math.abs(dy) < 0.01 || dt === 0 ? targetYaw : cy + dy * damping(30, dt);
 
-      fighterAnim(f, def, this.ref);
-      let frame = this.ref.frame;
-      if (p.act === f.act && p.move === f.move && p.actFrame !== f.actFrame && f.hitlag === 0) frame = f.actFrame - 1 + alpha;
-      // Pre-round intro pose (render only; fighters are intangible during the intro anyway)
-      if (cur.phase === 0 && f.act === Act.Idle && def.anims.intro) {
-        this.ref.anim = def.anims.intro;
-        frame = cur.phaseTimer - 1 + alpha;
-      }
-      samplePoseF(this.ref.anim, Math.max(0, frame), this.rot, this.rootOff);
-      applyPose(model, this.rot, this.rootOff);
-      updateGlb(model, this.ref.clip, frame);
+      const pose = this.poses[i];
+      const ref = pose.sample(p, f, def, alpha, dt, cur.phase, cur.phaseTimer, prev.phaseTimer, reset);
+      applyPose(model, pose.rot, pose.root);
+      updateGlb(model, ref.clip, ref.frame);
+      model.root.updateMatrixWorld(true);
       for (const d of model.dangles) d.update(dt, model.root);
 
       // Invulnerability flicker, aura, shield
@@ -445,7 +477,7 @@ export class GameRenderer {
       const au = model.auraU;
       const charging = f.act === Act.KiCharge;
       const target = auraOn ? (charging ? 1.0 : 0.75) : f.ki >= 300 ? 0.22 : 0;
-      au.uOpacity.value = lerp(au.uOpacity.value, target, Math.min(1, dt * 10));
+      au.uOpacity.value = lerp(au.uOpacity.value, target, damping(10, dt));
       au.uTime.value = this.time * (charging ? 1.6 : 1);
       model.aura.visible = au.uOpacity.value > 0.01;
       const pulse = charging ? 1.1 + Math.sin(this.time * 20) * 0.05 : 1;
@@ -502,7 +534,7 @@ export class GameRenderer {
     }
 
     this.updateTrails(cur);
-    this.renderProjectiles(cur);
+    this.renderProjectiles(prev, cur, alpha);
     this.updateSparks(dt);
     this.updateParticles(dt);
     this.updateDebug(cur);
@@ -510,12 +542,18 @@ export class GameRenderer {
     this.renderer.render(this.scene, this.camera);
   }
 
-  private renderProjectiles(s: GameState): void {
+  private renderProjectiles(prev: GameState, s: GameState, alpha: number): void {
     let bi = 0;
     let mi = 0;
     for (const p of s.projectiles) {
       const def = FIGHTERS[p.char].moves[p.move].projectile!;
       const color = def.color;
+      // Match by lifetime as projectile arrays compact after hits/despawns.
+      const old = prev.projectiles.find((q) => q.owner === p.owner && q.move === p.move &&
+        q.char === p.char && q.facing === p.facing && (q.life === p.life + 1 || q.clash && p.clash && q.life === p.life));
+      const x = old ? lerp(old.x, p.x, alpha) : p.x;
+      const y = old ? lerp(old.y, p.y, alpha) : p.y;
+      const beamLen = old ? lerp(old.len, p.len, alpha) : p.len;
       if (def.kind === ProjKind.Blast) {
         let m = this.blastPool[bi];
         if (!m) {
@@ -530,7 +568,7 @@ export class GameRenderer {
         (m.material as THREE.MeshBasicMaterial).color.setHex(color);
         const r = toM(def.r) * (1 + Math.sin(this.time * 40) * 0.08);
         m.scale.setScalar(r);
-        m.position.set(toM(p.x), toM(p.y), 0.3);
+        m.position.set(toM(x), toM(y), 0.3);
       } else {
         let b = this.beamPool[mi];
         if (!b) {
@@ -545,19 +583,19 @@ export class GameRenderer {
           this.projGroup.add(body, head, core);
         }
         mi++;
-        const len = Math.max(0.05, toM(p.len));
+        const len = Math.max(0.05, toM(beamLen));
         const r = toM(def.r) * (1 + Math.sin(this.time * 50) * 0.1) * (p.power > 100 ? 1.15 : 1);
-        const cx = toM(p.x) + (p.facing * len) / 2;
+        const cx = toM(x) + (p.facing * len) / 2;
         for (const part of [b.body, b.core]) {
           part.visible = true;
-          part.position.set(cx, toM(p.y), 0.3);
+          part.position.set(cx, toM(y), 0.3);
           part.scale.set(part === b.core ? r : r, len, part === b.core ? r : r);
         }
         (b.body.material as THREE.MeshBasicMaterial).color.setHex(color);
         (b.head.material as THREE.MeshBasicMaterial).color.setHex(color);
         b.head.visible = true;
         b.head.scale.setScalar(r * 1.5);
-        b.head.position.set(toM(p.x) + p.facing * len, toM(p.y), 0.3);
+        b.head.position.set(toM(x) + p.facing * len, toM(y), 0.3);
       }
     }
     for (let i = bi; i < this.blastPool.length; i++) this.blastPool[i].visible = false;
@@ -586,17 +624,17 @@ export class GameRenderer {
         if (h) {
           const j = fighterJoints(f, this.trailJoints);
           const [px, py] = bonePoint(j, h.bone, h.ox, h.oy);
-          const p = new THREE.Vector3(toM(f.x + px * f.facing), toM(f.y + py), 0.35);
+          const p = this.trailPoint.set(toM(f.x + px * f.facing), toM(f.y + py), 0.35);
           const last = tr.pts[tr.pts.length - 1];
           if (!last || last.distanceToSquared(p) > 0.0004) {
-            tr.pts.push(p);
+            const point = tr.spare.pop() ?? tr.pts.shift()!;
+            tr.pts.push(point.copy(p));
             tr.width = toM(h.r) * 1.1;
             added = true;
           }
         }
       }
-      if (!added && tr.pts.length) tr.pts.shift();
-      while (tr.pts.length > 10) tr.pts.shift();
+      if (!added && tr.pts.length) tr.spare.push(tr.pts.shift()!);
       const pos = tr.geo.attributes.position as THREE.BufferAttribute;
       const col = tr.geo.attributes.color as THREE.BufferAttribute;
       const n = tr.pts.length;
@@ -732,10 +770,10 @@ export class GameRenderer {
       cy = toM(o.y) + 1.2;
       dist = 6.5;
     }
-    const target = new THREE.Vector3(cx, cy + dist * 0.05, dist);
+    const target = this.camTarget.set(cx, cy + dist * 0.05, dist);
     const k = 1 - Math.pow(s.freeze > 0 ? 0.0005 : 0.02, dt);
     this.camPos.lerp(target, k);
-    this.camLook.lerp(new THREE.Vector3(cx, cy, 0), k);
+    this.camLook.lerp(this.lookTarget.set(cx, cy, 0), k);
     this.camera.position.copy(this.camPos);
     if (this.punch > 0) {
       // Punch-in: snap the camera slightly towards the action, then ease back out

@@ -168,13 +168,15 @@ export class Match {
       // Time sync: if we're running ahead of the peer, skip an occasional tick so both sides converge.
       this.syncTick++;
       if (this.net.frameAdvantage > this.net.delay + 1 && this.syncTick % 3 === 0) return;
-      const before = saveState(this.net.state);
       const local = this.paused ? 0 : this.input.maskFor(this.setup.players[this.net.localPort].device);
       const res = this.net.advance(local);
-      this.input.endFrame();
       this.state = this.net.state;
-      if (!res.advanced) return;
-      this.prev = before;
+      if (!res.advanced) {
+        this.prev = this.state; // hold the current pose instead of replaying stale interpolation on every stall
+        return; // retain latched short taps until a tick actually schedules them
+      }
+      this.input.endFrame();
+      this.prev = this.net.previousState;
       ev = res.events;
     } else {
       this.prev = saveState(this.state);

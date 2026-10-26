@@ -35,7 +35,7 @@ moves[Mv.Jab] = mb.move(
   'Snap Jab',
   18,
   [
-    { f: 0 },
+    { f: 0 }, { f: 1, r: { RightArm: 45, RightForeArm: 115 } },
     { f: 2, r: { RightArm: 88, RightForeArm: 5, Spine: -14 } },
     { f: 6, r: { RightArm: 88, RightForeArm: 5 } },
     { f: 12, r: { RightArm: 55, RightForeArm: 100, Spine: -8 } },
@@ -460,7 +460,7 @@ export const KESTREL: FighterDef = {
       { f: 70, r: { RightArm: 175, RightForeArm: 20, Head: -20 }, root: [0, 0.03] },
       { f: 95 },
     ], 110),
-    ...stateAnims(mb, false, { idlePeriod: 26, bob: 0.035 }),
+    ...stateAnims(mb, false, { walkSpeed: 0.062, runSpeed: 0.135, scale: 960, jumpSquat: 3, idlePeriod: 26, bob: 0.035 }),
     victory: mb.anim([
       { f: 0, r: { RightArm: 175, RightForeArm: 15, LeftArm: 30, LeftForeArm: 120, Spine: 6, Head: -12, RightUpLeg: 10, LeftUpLeg: -10, RightLeg: -10, LeftLeg: -10 }, root: [0, 0] },
       { f: 12, r: { RightArm: 165, RightForeArm: 40 }, root: [0, 0.04] },

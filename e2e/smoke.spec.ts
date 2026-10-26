@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 
-type FrayWindow = { __fray?: { state: { frame: number; phase: number; fighters: { health: number; damage: number }[] } } };
+type FrayWindow = { __fray?: { stepping: boolean; stepRequests: number; state: { frame: number; phase: number; fighters: { health: number; damage: number }[] } } };
 
 async function boot(page: Page, errors: string[]) {
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -63,7 +63,10 @@ test('keyboard player moves and training frame-step works', async ({ page }) => 
   // Wait for GO
   await page.waitForFunction(() => (window as unknown as FrayWindow).__fray!.state.phase === 1);
   await page.keyboard.press('F2');
-  await page.waitForTimeout(200);
+  await page.waitForFunction(() => {
+    const m = (window as unknown as FrayWindow).__fray;
+    return m?.stepping && m.stepRequests === 0;
+  });
   const f = await frame(page);
   await page.waitForTimeout(300);
   expect(await frame(page)).toBe(f); // paused in step mode
@@ -75,8 +78,7 @@ test('keyboard player moves and training frame-step works', async ({ page }) => 
   await page.keyboard.down('KeyJ');
   await page.waitForTimeout(100);
   await page.keyboard.up('KeyJ');
-  await page.waitForTimeout(500);
-  expect(await frame(page)).toBeGreaterThan(f + 10);
+  await expect.poll(() => frame(page)).toBeGreaterThan(f + 10);
   expect(errors).toEqual([]);
 });
 

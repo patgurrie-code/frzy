@@ -41,7 +41,7 @@ export const VS_DMG_SCALE = 7;
 export const VS_ROUND_FRAMES = 99 * 60;
 export const KI_MAX = 300;
 export const KI_BAR = 100;
-const BUFFER = 5;
+const BUFFER = 8;
 const AUTO_RUN = 9; // Platform: walking this many frames in one direction breaks into a run
 const KI_CHARGE_RATE = 1; // ki per frame while charging
 const DOUBLE_TAP = 14;
@@ -489,10 +489,7 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
       groundMovement(s, f, cur, dx);
       return;
     case Act.JumpSquat:
-      if (f.shAerial) {
-        groundFriction(f, st.traction);
-        if (f.actFrame < st.jumpSquat) return;
-      }
+      if (f.shAerial && f.actFrame < st.jumpSquat) return;
       // Specials / grab out of jump squat. With tap-jump (Up = Jump) Attack/Smash here cancel the jump into
       // up tilt / up smash, so up-attacks stay usable on keyboard.
       if (pressed(s, f, IN_SPECIAL) >= 0 || pressed(s, f, IN_GRAB) >= 0) {
@@ -508,12 +505,13 @@ function updateGround(s: GameState, f: FighterState, cur: number): void {
         startMove(s, f, cur & IN_SMASH ? Mv.USmash : Mv.UTilt);
         return;
       }
-      groundFriction(f, st.traction);
+      // Preserve a running take-off; only brake if the player lets go or reverses.
+      if (dx === 0 || sign(f.vx) !== dx) groundFriction(f, st.traction);
       if (f.actFrame >= st.jumpSquat) {
         const sh = f.shAerial;
         const full = (cur & IN_JUMP) !== 0 && !sh;
         f.vy = full ? st.jumpV : st.hopV;
-        f.vx = clamp(f.vx + dx * st.airAccel * 4, -st.airSpeed, st.airSpeed);
+        f.vx = approach(f.vx, dx * st.airSpeed, st.airAccel);
         f.grounded = 0;
         f.platform = -1;
         setAct(f, Act.Air);
@@ -633,7 +631,7 @@ function groundMovement(s: GameState, f: FighterState, cur: number, dx: number):
         f.facing = dx;
         setAct(f, Act.Dash);
       }
-      f.vx = dx * st.dash;
+      f.vx = approach(f.vx, dx * st.dash, Math.max(1, Math.trunc(st.dash / 3)));
       if (f.actFrame >= st.dashFrames) setAct(f, versus && dx !== f.facing ? Act.Walk : Act.Run);
       return;
     }
@@ -641,11 +639,11 @@ function groundMovement(s: GameState, f: FighterState, cur: number, dx: number):
       if (dx !== f.facing) {
         // Run turnaround: skid then turn
         if (!versus) f.facing = dx;
-        f.vx = f.vx >> 1;
+        f.vx = approach(f.vx, 0, st.traction * 2);
         setAct(f, Act.Walk);
         return;
       }
-      f.vx = f.facing * st.run;
+      f.vx = approach(f.vx, f.facing * st.run, st.traction * 2);
       return;
     }
     // Double tap -> dash (back-dash in Versus keeps facing)
@@ -653,18 +651,18 @@ function groundMovement(s: GameState, f: FighterState, cur: number, dx: number):
     if (tappedWithin(s, f, bit, 1) && isDoubleTap(s, f, bit)) {
       if (!versus) f.facing = dx;
       setAct(f, Act.Dash);
-      f.vx = dx * st.dash;
+      f.vx = approach(f.vx, dx * st.dash, Math.max(1, Math.trunc(st.dash / 3)));
       return;
     }
     if (!versus) f.facing = dx;
     if (f.act !== Act.Walk) setAct(f, Act.Walk);
     if (!versus && f.actFrame >= AUTO_RUN && sign(f.vx) === dx) {
       setAct(f, Act.Run);
-      f.vx = dx * st.run;
+      f.vx = approach(f.vx, dx * st.run, st.traction * 2);
       return;
     }
     const target = dx * (versus && dx !== f.facing ? (st.walk * 3) >> 2 : st.walk);
-    f.vx = approach(f.vx, target, st.walk >> 1);
+    f.vx = approach(f.vx, target, Math.max(1, Math.trunc(st.walk / 3)));
     return;
   }
   if (f.act !== Act.Idle) setAct(f, Act.Idle);
@@ -802,7 +800,8 @@ function groundActions(s: GameState, f: FighterState, cur: number, fromJumpSquat
     setAct(f, Act.JumpSquat);
     return true;
   }
-  if (cur & IN_GUARD) {
+  if (cur & IN_GUARD || pressed(s, f, IN_GUARD) >= 0) {
+    consume(s, f);
     setAct(f, Act.Shield);
     emit(s, EvType.Dodge, f.x, f.y, f.port, 0);
     return true;
@@ -973,7 +972,8 @@ function airDrift(f: FighterState, dx: number, max: number): void {
   const st = def(f).stats;
   if (dx !== 0) {
     const target = dx * max;
-    if ((dx > 0 && f.vx < target) || (dx < 0 && f.vx > target)) f.vx = approach(f.vx, target, st.airAccel);
+    const excess = sign(f.vx) === dx && abs(f.vx) > max;
+    f.vx = approach(f.vx, target, excess ? st.airFriction : st.airAccel);
   } else {
     f.vx = approach(f.vx, 0, st.airFriction);
   }
@@ -1019,7 +1019,7 @@ function airActions(s: GameState, f: FighterState, cur: number): boolean {
     f.jumps--;
     f.vy = def(f).stats.airJumpV;
     f.fastFall = 0;
-    f.vx = dx * def(f).stats.airSpeed;
+    f.vx = approach(f.vx, dx * def(f).stats.airSpeed, def(f).stats.airAccel * 2);
     if (dx !== 0 && s.mode !== Mode.Versus) f.facing = dx;
     setAct(f, Act.Air);
     emit(s, EvType.Jump, f.x, f.y, 1);
@@ -2027,7 +2027,8 @@ export function applyHit(
 
   // Hitlag
   const hlMul = h.hitlag ?? 100;
-  const hitlag = Math.min(20, Math.trunc(((Math.trunc((dmg * 65) / 100) + 5) * hlMul) / 100));
+  // Shorter baseline freeze keeps light links flowing; heavy hits still scale up to 18f.
+  const hitlag = Math.min(18, Math.trunc(((Math.trunc((dmg * 55) / 100) + 4) * hlMul) / 100));
   if (!isProjectile) a.hitlag = hitlag;
   v.hitlag = hitlag;
 
