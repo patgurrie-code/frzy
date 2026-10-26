@@ -29,6 +29,7 @@ export class Hud {
   private bannerTimer = 0;
   private training: HTMLElement;
   private calls: HTMLElement;
+  private netEl: HTMLElement;
   private dispHealth: number[] = [];
   private names: string[] = [];
 
@@ -37,7 +38,8 @@ export class Hud {
     this.banner = el('<div class="banner"></div>');
     this.training = el('<div class="training-panel hidden"></div>');
     this.calls = el('<div class="callouts"><div class="co-side left"></div><div class="co-side right"></div></div>');
-    parent.append(this.root, this.calls, this.banner, this.training);
+    this.netEl = el('<div class="net-status hidden"></div>');
+    parent.append(this.root, this.calls, this.banner, this.training, this.netEl);
   }
 
   setup(s: GameState, playerLabels: string[], nameOverrides: (string | undefined)[] = [], looks: (Partial<FighterLook> | undefined)[] = []): void {
@@ -244,7 +246,13 @@ export class Hud {
       <div class="tp-keys">F1 boxes: <b>${info.boxes ? 'ON' : 'off'}</b> · F2 step${info.stepping ? ' (<b>PAUSED</b>)' : ''} · F3 resume · F4 reset %</div>`;
   }
 
+  setNet(text: string | null): void {
+    this.netEl.classList.toggle('hidden', !text);
+    if (text && this.netEl.textContent !== text) this.netEl.textContent = text;
+  }
+
   clear(): void {
+    this.netEl.classList.add('hidden');
     this.root.innerHTML = '';
     for (const c of Array.from(this.calls.children)) c.innerHTML = '';
     this.banner.className = 'banner';
