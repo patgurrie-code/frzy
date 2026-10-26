@@ -3,6 +3,12 @@
 Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under "Log".
 
 ## Log
+- 2026-10-26 (OpenAI Codex), step 2: 8f recovery buffer, buffered Guard taps, smoother walk/dash/run/turnaround,
+  momentum through take-off/air jumps and gradual excess-speed air drift. PROTOCOL 1 → 2. Online stalls retain
+  keyboard latches; render previous state now comes from corrected rollback history. Blur clears stale latches.
+  Validation: 77 unit tests, TypeScript and all 6 browser tests pass (including online checksums).
+  Frame-step smoke test waits for its queued step instead of assuming 200 ms on a loaded software GPU.
+  Next: locomotion and recovery keyframes, isolated browser measurements.
 - 2026-10-26 (OpenAI Codex), step 1: read architecture, sim, fighter data, renderer, input/CPU, UI/story and tests.
   Added render-only pose crossfades and actual-clock interpolation (fixes hitlag/charge/grab sampling), bounded small
   correction smoothing, respawn resets, exponential facing/aura/particle damping; removed Dangle/camera hot-path

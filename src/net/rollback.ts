@@ -69,6 +69,11 @@ export class RollbackSession {
     this.lastScheduled = this.delay;
   }
 
+  /** Corrected preceding snapshot for render interpolation after re-simulation. Read only. */
+  get previousState(): GameState {
+    return this.snapshots.get(this.state.frame - 1) ?? this.state;
+  }
+
   get remotePort(): number {
     return 1 - this.localPort;
   }

@@ -192,3 +192,8 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 - Start from fetched origin/main; online rollback tests and two-browser relay checks are required for sim changes.
 - Fonts use local Latin WOFF2 subsets (OFL licenses in public/fonts); Playwright can use an installed Chromium via
   PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH when the pinned browser is unavailable.
+- Protocol 2: input buffer is 8f; released Guard taps can buffer shield on recovery. Walk reaches speed in 3 ticks,
+  dash ramps in 3 ticks, run changes/turnarounds use traction rather than velocity snaps. Jump squat carries held
+  momentum; air drift bleeds excess speed gradually; air jumps steer rather than erase horizontal velocity.
+- Online interpolation reads the corrected preceding rollback snapshot; stalls hold the current state and retain
+  keyboard latches until input is scheduled. Blur clears held and latched keys.

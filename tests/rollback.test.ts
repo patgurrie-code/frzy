@@ -82,6 +82,8 @@ describe('rollback netcode', () => {
   it('actually rolls back under latency and never exceeds the rollback window', () => {
     const { A } = play(versus, 600, 6, 3, 0.05);
     expect(A.stats.rollbacks).toBeGreaterThan(0);
+    expect(A.previousState.frame).toBe(A.frame - 1);
+    expect(checksum(A.previousState)).toBe(A.checksumAt(A.frame - 1));
     expect(A.stats.maxRollbackDepth).toBeLessThanOrEqual(A.maxRollback + 1);
   });
 });

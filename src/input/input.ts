@@ -103,7 +103,7 @@ export class InputManager {
       this.down.delete(e.code);
       this.onKey?.(e.code, false);
     });
-    target.addEventListener('blur', () => this.down.clear());
+    target.addEventListener('blur', () => { this.down.clear(); this.latched.clear(); });
   }
 
   keyboardMask(set: number): number {
