@@ -105,6 +105,8 @@ Read NOTES.md first for current status / next steps. Commit + push after every w
 - Stage collision: the main stage is a solid block; within 0.6 m of its edge the underside pushes you out sideways (so
   recoveries slide up the wall to the ledge) instead of bonking.
 - CPU levels 1–9 (think rate, shield chance, smash/EX usage). Recovery aims just outside the ledge while below stage level.
+  CPUs guard only while the attacker's move still has active frames left (+3f), and back off instead of shielding when
+  their Platform shield is below ~35%.
 - Menus: attract mode (two CPUs, `quiet: true` match) runs behind the menus. Last setup saved in localStorage.
 
 ## Fighters (src/sim/fighters/, roster order = FIGHTERS index; append only)
@@ -131,6 +133,9 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 - `intro` anim per fighter (render-only, played during the Intro phase).
 - Animation personality: `stateAnims(mb, heavy, style)` (idlePeriod, bob, ninjaRun); each fighter overrides `victory`.
   `knockdown` anim is used for Land with landLag ≥ 20.
+- Gait clock: Walk/Run cycles advance by distance (`FighterState.stride` += vx·facing; frame = stride / stats.walk|run), so
+  feet don't slide while accelerating and Versus back-walks play the cycle in reverse. `skid` anim (in `stateAnims`) shows
+  for Idle/turnaround Walk while grounded speed > walk speed (run stop, run turnaround, dash stop).
 
 ## Character art (src/render/)
 - `kit.ts`: modelling toolkit. Parts (limb/box/sphere/cone/cyl/lathe) are authored in bone-local space, then merged per

@@ -39,7 +39,8 @@ export class PoseBlend {
     }
     const same = this.ref.clip === this.prevRef.clip && this.ref.anim === this.prevRef.anim;
     // Actual sampled clocks, rather than actFrame - 1: charge, grabs, freezes and hitlag can hold a pose.
-    const frame = same && this.ref.frame >= this.prevRef.frame
+    // Gait clocks run backwards on back-walks; looping clips may interpolate in either direction.
+    const frame = same && (this.ref.frame >= this.prevRef.frame || this.ref.anim.loop)
       ? this.prevRef.frame + (this.ref.frame - this.prevRef.frame) * alpha : this.ref.frame;
     samplePoseF(this.ref.anim, Math.max(0, frame), this.rot, this.root);
     const changed = this.clip !== this.ref.clip || f.actFrame < this.lastFrame;

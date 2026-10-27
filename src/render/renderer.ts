@@ -358,7 +358,8 @@ export class GameRenderer {
   }
 
   private particle(x: number, y: number, vx: number, vy: number, color: number, w: number, len: number, life: number, kind: 'streak' | 'dust'): void {
-    let p = this.parts.find((q) => q.life <= 0 && q.kind === kind);
+    let p: (typeof this.parts)[number] | undefined;
+    for (const q of this.parts) if (q.life <= 0 && q.kind === kind) { p = q; break; }
     if (!p) {
       if (this.parts.length > 160) return;
       const mat = new THREE.MeshBasicMaterial({
@@ -409,8 +410,8 @@ export class GameRenderer {
   }
 
   private spawnSpark(x: number, y: number, size: number, color: number, life: number, angle = Math.random() * Math.PI): void {
-    let sp = this.sparks.find((s) => s.life <= 0);
-    if (!sp) sp = this.sparks[0];
+    let sp = this.sparks[0];
+    for (const q of this.sparks) if (q.life <= 0) { sp = q; break; }
     sp.life = sp.max = life;
     sp.size = size;
     sp.mesh.position.set(x, y, 0.8);
@@ -494,7 +495,8 @@ export class GameRenderer {
       else if (f.act === Act.KiCharge || f.act === Act.Beam || (cur.freeze > 0 && cur.freezeOwner === f.port)) expr = 'shout';
       else if (f.act === Act.Attack && f.move >= 0) {
         const mv = def.moves[f.move];
-        if (mv.hitboxes.some((h) => f.actFrame >= h.start - 2 && f.actFrame <= h.end + 2) || mv.projectile || f.charge > 0) expr = 'shout';
+        if (mv.projectile || f.charge > 0) expr = 'shout';
+        else for (const h of mv.hitboxes) if (f.actFrame >= h.start - 2 && f.actFrame <= h.end + 2) { expr = 'shout'; break; }
       }
       if (expr === 'normal') {
         model.blinkAt -= dt;
@@ -549,8 +551,11 @@ export class GameRenderer {
       const def = FIGHTERS[p.char].moves[p.move].projectile!;
       const color = def.color;
       // Match by lifetime as projectile arrays compact after hits/despawns.
-      const old = prev.projectiles.find((q) => q.owner === p.owner && q.move === p.move &&
-        q.char === p.char && q.facing === p.facing && (q.life === p.life + 1 || q.clash && p.clash && q.life === p.life));
+      let old: (typeof prev.projectiles)[number] | undefined;
+      for (const q of prev.projectiles) {
+        if (q.owner === p.owner && q.move === p.move && q.char === p.char && q.facing === p.facing &&
+          (q.life === p.life + 1 || q.clash && p.clash && q.life === p.life)) { old = q; break; }
+      }
       const x = old ? lerp(old.x, p.x, alpha) : p.x;
       const y = old ? lerp(old.y, p.y, alpha) : p.y;
       const beamLen = old ? lerp(old.len, p.len, alpha) : p.len;
@@ -620,7 +625,8 @@ export class GameRenderer {
       let added = false;
       if (f && f.act === Act.Attack && f.move >= 0 && s.freeze === 0) {
         const mv = FIGHTERS[f.char].moves[f.move];
-        const h = mv.hitboxes.find((hb) => hb.kind === 0 && f.actFrame >= hb.start - 1 && f.actFrame <= hb.end + 2);
+        let h: (typeof mv.hitboxes)[number] | undefined;
+        for (const hb of mv.hitboxes) if (hb.kind === 0 && f.actFrame >= hb.start - 1 && f.actFrame <= hb.end + 2) { h = hb; break; }
         if (h) {
           const j = fighterJoints(f, this.trailJoints);
           const [px, py] = bonePoint(j, h.bone, h.ox, h.oy);
@@ -778,12 +784,15 @@ export class GameRenderer {
     if (this.punch > 0) {
       // Punch-in: snap the camera slightly towards the action, then ease back out
       this.camera.position.lerp(this.camLook, this.punch * 0.08);
-      this.punch = Math.max(0, this.punch - dt * 3.5);
+      this.punch = this.punch < 0.01 ? 0 : this.punch * (1 - damping(7, dt));
     }
     if (this.shake > 0) {
-      this.camera.position.x += (Math.random() - 0.5) * this.shake;
-      this.camera.position.y += (Math.random() - 0.5) * this.shake;
-      this.shake = Math.max(0, this.shake - dt * 1.5);
+      // Smooth pseudo-noise (sum of incommensurate sines) instead of per-frame random jumps:
+      // reads as a rumble at any refresh rate and never strobes.
+      const t = this.time;
+      this.camera.position.x += (Math.sin(t * 53.1) + Math.sin(t * 31.7 + 1.3)) * 0.3 * this.shake;
+      this.camera.position.y += (Math.sin(t * 47.3 + 2.1) + Math.sin(t * 27.9 + 0.4)) * 0.3 * this.shake;
+      this.shake = this.shake < 0.005 ? 0 : this.shake * (1 - damping(5, dt));
     }
     this.camera.lookAt(this.camLook);
     this.bgFar.position.set(this.camPos.x * 0.85, this.camPos.y * 0.5, 0);

@@ -217,6 +217,8 @@ export interface FighterAnims {
   beam: Anim;
   charge: Anim;
   knockdown: Anim;
+  /** Braking slide (run stop / turnaround, ground speed above walk speed). */
+  skid: Anim;
   crouchGuard: Anim;
   /** Pre-round intro pose (render only; played during the Intro phase). */
   intro?: Anim;

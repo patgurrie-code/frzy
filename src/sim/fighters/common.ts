@@ -287,6 +287,16 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
       32,
       true,
     ),
+    // Braced slide: weight back, lead foot planted ahead, arms out for balance.
+    skid: mb.anim(
+      [
+        { f: 0, r: { Spine: 14, Head: -8, RightUpLeg: 55, RightLeg: -15, LeftUpLeg: -10, LeftLeg: -55, RightArm: 50, LeftArm: -25, RightForeArm: 40, LeftForeArm: 30 }, root: [0, -0.14] },
+        { f: 6, r: { Spine: 18, RightUpLeg: 60, LeftLeg: -60 }, root: [0, -0.17] },
+        { f: 12, r: { Spine: 14, RightUpLeg: 55, LeftLeg: -55 }, root: [0, -0.14] },
+      ],
+      12,
+      true,
+    ),
     dash: mb.anim([{ f: 0, r: { Spine: -30, RightUpLeg: 60, RightLeg: -40, LeftUpLeg: -45, LeftLeg: -30, RightArm: -50, LeftArm: 40 }, root: [0, -0.1] }], 1),
     crouch: mb.anim([{ f: 0, r: { Spine: -25, RightUpLeg: 80, RightLeg: -110, LeftUpLeg: 50, LeftLeg: -120, Head: 15 }, root: [0, -0.32] }], 1),
     jumpSquat: mb.anim([{ f: 0, ease: Ease.Smooth }, { f: style.jumpSquat ?? 3, r: { Spine: -20, RightUpLeg: 70, RightLeg: -100, LeftUpLeg: 50, LeftLeg: -100, RightArm: -15, LeftArm: -10 }, root: [0, -0.25] }], style.jumpSquat ?? 3),

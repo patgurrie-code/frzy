@@ -12,7 +12,7 @@ import type { Match, MatchSetup } from '../game';
 import type { Sfx } from '../audio/sfx';
 import { portrait } from './hud';
 
-const PROTOCOL = 3;
+const PROTOCOL = 4;
 
 export interface OnlineHost {
   startMatch(setup: MatchSetup, onEnd: (s: GameState) => void): Match;
