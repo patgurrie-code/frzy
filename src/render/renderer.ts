@@ -52,7 +52,6 @@ export class GameRenderer {
   private dummy = new THREE.Object3D();
   private joints = makeJoints();
   private trails: { pts: THREE.Vector3[]; spare: THREE.Vector3[]; mesh: THREE.Mesh; geo: THREE.BufferGeometry; width: number }[] = [];
-  private trailJoints = makeJoints();
   private trailPoint = new THREE.Vector3();
   private clashFx: THREE.Mesh;
   private bgFar: THREE.Group = new THREE.Group();
@@ -628,9 +627,13 @@ export class GameRenderer {
         let h: (typeof mv.hitboxes)[number] | undefined;
         for (const hb of mv.hitboxes) if (hb.kind === 0 && f.actFrame >= hb.start - 1 && f.actFrame <= hb.end + 2) { h = hb; break; }
         if (h) {
-          const j = fighterJoints(f, this.trailJoints);
-          const [px, py] = bonePoint(j, h.bone, h.ox, h.oy);
-          const p = this.trailPoint.set(toM(f.x + px * f.facing), toM(f.y + py), 0.35);
+          // Follow the rendered (interpolated, crossfaded) limb rather than the tick-rate sim joint, so arcs stay
+          // smooth at any refresh rate and match what's on screen. Hitbox offsets are unscaled; bones live in the
+          // body group's scaled space.
+          const model = this.models[i];
+          const k = 1 / (FX * model.body.scale.x);
+          const p = model.bones[h.bone].localToWorld(this.trailPoint.set(h.ox * k, h.oy * k, 0));
+          p.z += 0.1;
           const last = tr.pts[tr.pts.length - 1];
           if (!last || last.distanceToSquared(p) > 0.0004) {
             const point = tr.spare.pop() ?? tr.pts.shift()!;

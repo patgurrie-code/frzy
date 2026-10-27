@@ -12,7 +12,8 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
   renderer hot path (particles, sparks, projectiles, trails, expressions). CPU shields only through remaining active frames
   and backs off at low shield: CPU-vs-CPU (level 7, 20 Platform matches, ~21 min) shield time 4.5% → 3.1%, breaks 1 → 0.
   Validation: 84 unit tests, tsc, 6 e2e passing; skid pose checked by screenshot.
-  Next: hand-tuned anticipation on specials, true foot-lock IK, trail sampling from rendered (interpolated) bones.
+  Swoosh trails now sample the rendered (interpolated, crossfaded) bone instead of tick-rate sim joints; checked by screenshot.
+  Next: hand-tuned anticipation on specials, true foot-lock IK.
 - 2026-10-26 (OpenAI Codex), step 3: appended follow-through/overshoot/settle tails to the full move roster without
   changing active integer poses or timings; regression fixture captures origin/main b0c4adc signatures. Each fighter's
   jab has 1f arm anticipation. Locomotion cycles retimed per speed/scale; walk arm swing, progressive jump squash,

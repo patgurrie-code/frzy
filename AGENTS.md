@@ -150,7 +150,8 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 - Expressions: `body()` builds face groups (normal / hurt / shout / blink); renderer picks one per state with random blinks.
 - Torso twist (render-only, `applyPose`): Spine2/Hips/Head rotate about Y from arm/leg extension so strikes read in 3D.
 - Renderer FX: directional hit sparks + streak particles along the launch angle, dust puffs (land/jump/dodge/tech), camera
-  punch-in on hits, swoosh ribbons following the first active hitbox, hit flash. FPS overlay (` key) shows draw calls.
+  punch-in on hits, swoosh ribbons following the first active hitbox (sampled from the rendered, interpolated bone so arcs
+  stay smooth at any refresh rate), smooth sine-noise camera shake, hit flash. FPS overlay (` key) shows draw calls.
 - GLB models still replace the procedural design via `glbLoader.ts` (it hides non-bone children of the bones).
 
 ## Online (src/net/, src/ui/online.ts, server/)
