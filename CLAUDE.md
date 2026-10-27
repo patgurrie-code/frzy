@@ -129,6 +129,8 @@ CmdThrow, super, dash attack, ledge attack (`Mv` enum in defs.ts; appended moves
 - Easing (`anim.ts`): each key's `ease` shapes the segment that starts at it (Linear / Snap = ease-out cubic / Smooth =
   smoothstep), integer maths in the sim. `MoveBuilder.move` auto-assigns: the segment arriving at the first active frame =
   Snap, wind-ups and recoveries = Smooth (override per key with `ease`). Loops default to Smooth.
+  `addAnticipation` (common.ts): moves authored straight from start pose to strike pose get an auto wind-up key at ~55%
+  of startup (bones swinging ≥25° pull back 20%, ≤30°; slow moves dip). Active frames are never changed.
 - Hit reactions: `hitHigh/hitMid/hitLow` chosen from where the hit landed (`FighterState.hitHeight`); tumble when launched.
 - `intro` anim per fighter (render-only, played during the Intro phase).
 - Animation personality: `stateAnims(mb, heavy, style)` (idlePeriod, bob, ninjaRun); each fighter overrides `victory`.

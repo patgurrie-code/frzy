@@ -63,3 +63,25 @@ describe('animation polish', () => {
     }
   });
 });
+
+describe('automatic anticipation', () => {
+  it('direct start→strike moves get a wind-up key before the first active frame', async () => {
+    const { FIGHTERS } = await import('../src/sim/fighters');
+    let checked = 0;
+    for (const d of FIGHTERS) for (const mv of d.moves) {
+      if (!mv) continue;
+      let first = mv.projectile?.f ?? 999;
+      for (const h of mv.hitboxes) first = Math.min(first, h.start);
+      if (first < 4 || first === 999) continue;
+      const atFirst = mv.anim.keys.findIndex((k) => k.f === first);
+      if (atFirst !== 1 && atFirst !== 2) continue;
+      if (atFirst === 2) {
+        const w = mv.anim.keys[1];
+        expect(w.f).toBeGreaterThan(0);
+        expect(w.f).toBeLessThan(first);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(50);
+  });
+});

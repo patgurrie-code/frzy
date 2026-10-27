@@ -13,7 +13,9 @@ Shared log for Claude Code and OpenAI Codex. Add a dated entry per session under
   and backs off at low shield: CPU-vs-CPU (level 7, 20 Platform matches, ~21 min) shield time 4.5% → 3.1%, breaks 1 → 0.
   Validation: 84 unit tests, tsc, 6 e2e passing; skid pose checked by screenshot.
   Swoosh trails now sample the rendered (interpolated, crossfaded) bone instead of tick-rate sim joints; checked by screenshot.
-  Next: hand-tuned anticipation on specials, true foot-lock IK.
+  Automatic anticipation (`addAnticipation`): 59 of 69 moves that snapped straight from stance to strike now wind up first
+  (active poses unchanged, fixture test still passes). PROTOCOL 4 → 5.
+  Next: true foot-lock IK, hand-authored anticipation for the 10 remaining moves, playtest feel with the user.
 - 2026-10-26 (OpenAI Codex), step 3: appended follow-through/overshoot/settle tails to the full move roster without
   changing active integer poses or timings; regression fixture captures origin/main b0c4adc signatures. Each fighter's
   jab has 1f arm anticipation. Locomotion cycles retimed per speed/scale; walk arm swing, progressive jump squash,
