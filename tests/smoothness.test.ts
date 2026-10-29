@@ -108,3 +108,46 @@ it('light hits release sooner while heavy hits retain a longer impact freeze', (
   }
   expect(lags).toEqual([5, 9, 16]);
 });
+
+describe('locomotion presentation (sim-side, drives hurtboxes)', () => {
+  it('gait clock follows distance: slower while accelerating, exact at full speed, reversed on Versus back-walk', async () => {
+    const { fighterAnim } = await import('../src/sim/pose');
+    const s = game(0), f = s.fighters[0], d = FIGHTERS[0];
+    const ref = { anim: d.anims.idle, frame: 0, clip: '' };
+    step(s, [IN_RIGHT]);
+    step(s, [IN_RIGHT]);
+    expect(f.act).toBe(Act.Walk);
+    fighterAnim(f, d, ref);
+    expect(ref.clip).toBe('walk');
+    expect(ref.frame).toBeLessThan(f.actFrame); // ramping up: feet don't outrun the body
+    for (let i = 0; i < 20; i++) step(s, [IN_RIGHT]);
+    expect(f.act).toBe(Act.Run);
+    const a = fighterAnim(f, d, ref).frame;
+    step(s, [IN_RIGHT]);
+    expect(fighterAnim(f, d, ref).frame - a).toBeGreaterThanOrEqual(0);
+    expect(fighterAnim(f, d, ref).frame - a).toBeLessThanOrEqual(1);
+
+    const v = createGame({ mode: Mode.Versus, stage: 0, chars: [0, 1], seed: 3 });
+    while (v.phase !== Phase.Fight) step(v, [0, 0]);
+    const g = v.fighters[0];
+    for (let i = 0; i < 10; i++) step(v, [g.facing > 0 ? IN_LEFT : IN_RIGHT, 0]);
+    expect(g.act).toBe(Act.Walk);
+    expect(fighterAnim(g, d, ref).frame).toBeLessThan(0);
+  });
+
+  it('run stop and turnaround show the skid pose while sliding faster than a walk', async () => {
+    const { fighterAnim } = await import('../src/sim/pose');
+    const d = FIGHTERS[0];
+    const ref = { anim: d.anims.idle, frame: 0, clip: '' };
+    const s = game(0), f = s.fighters[0];
+    for (let i = 0; i < 20; i++) step(s, [IN_RIGHT]);
+    expect(f.act).toBe(Act.Run);
+    const turn = saveState(s);
+    step(s, [0]);
+    expect(fighterAnim(f, d, ref).clip).toBe('skid');
+    step(turn, [IN_LEFT]);
+    expect(fighterAnim(turn.fighters[0], d, ref).clip).toBe('skid');
+    for (let i = 0; i < 40; i++) step(s, [0]);
+    expect(fighterAnim(f, d, ref).clip).toBe('idle');
+  });
+});

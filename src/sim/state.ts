@@ -107,6 +107,7 @@ export interface FighterState {
   throwTech: number; // frames left to break a fresh grab
   burstUsed: number; // Versus: 1 once the burst has been used this round
   shAerial: number; // 1 = short-hop aerial macro pending (Jump + Attack pressed together)
+  stride: number; // Walk/Run: distance travelled along facing (FX) since the act began; drives the gait clock
 }
 
 export interface ProjectileState {
@@ -268,6 +269,7 @@ export function newFighterState(char: number, port: number, team: number): Fight
     throwTech: 0,
     burstUsed: 0,
     shAerial: 0,
+    stride: 0,
   };
 }
 

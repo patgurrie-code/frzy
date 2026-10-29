@@ -139,6 +139,7 @@ export class MoveBuilder {
 
   move(name: string, length: number, keys: KeySpec[], hitboxes: HitboxDef[], opts: MoveOpts = {}): MoveDef {
     const anim = compileAnim(this.stance, autoEase(keys, hitboxes, opts), length);
+    addAnticipation(anim, hitboxes, opts);
     // Sparse empty keys inherit the strike. Add a real follow-through/settle tail after all authored
     // keys AND every active/release frame; existing wind-ups and active poses remain exact.
     let hold = anim.keys[anim.keys.length - 1].f;
@@ -167,6 +168,35 @@ export class MoveBuilder {
   anim(keys: KeySpec[], length: number, loop = false): Anim {
     return compileAnim(this.stance, keys, length, loop);
   }
+}
+
+/**
+ * Moves authored as "start pose -> strike pose" (no key in between) get an automatic anticipation key at ~55% of the
+ * startup: every bone that swings ≥25° into the strike first pulls back against it (20%, capped at 30°) and slow moves
+ * dip slightly. The first active pose and every later key stay exactly as authored (hitboxes unchanged).
+ */
+function addAnticipation(anim: Anim, hitboxes: HitboxDef[], opts: MoveOpts): void {
+  let first = opts.projectile?.f ?? 1 << 20;
+  for (const h of hitboxes) first = Math.min(first, h.start);
+  if (first < 4 || first >= 1 << 20) return;
+  const keys = anim.keys;
+  if (keys.length < 2 || keys[0].f !== 0 || keys[1].f !== first) return;
+  const k0 = keys[0];
+  const k1 = keys[1];
+  const rot = k0.rot.slice();
+  let moved = false;
+  for (let b = 0; b < BONE_COUNT; b++) {
+    const d = k1.rot[b] - k0.rot[b];
+    if (d >= 25 || d <= -25) {
+      const back = Math.max(-30, Math.min(30, Math.trunc(d / 5)));
+      rot[b] = k0.rot[b] - back;
+      moved = true;
+    }
+  }
+  if (!moved) return;
+  const dip = first >= 8 ? m(0.03) : m(0.012);
+  k0.ease = Ease.Smooth;
+  keys.splice(1, 0, { f: Math.max(2, Math.round(first * 0.55)), rot, rootX: k0.rootX, rootY: k0.rootY - dip, ease: Ease.Snap });
 }
 
 /** Velocity key helper (m/frame). */
@@ -285,6 +315,16 @@ export function stateAnims(mb: MoveBuilder, heavy: boolean, style: AnimStyle = {
         { f: 32, r: { RightUpLeg: 55, RightLeg: -30, LeftUpLeg: -40, LeftLeg: -60, RightArm: -40, LeftArm: 50 }, root: [0, -0.08] },
       ],
       32,
+      true,
+    ),
+    // Braced slide: weight back, lead foot planted ahead, arms out for balance.
+    skid: mb.anim(
+      [
+        { f: 0, r: { Spine: 14, Head: -8, RightUpLeg: 55, RightLeg: -15, LeftUpLeg: -10, LeftLeg: -55, RightArm: 50, LeftArm: -25, RightForeArm: 40, LeftForeArm: 30 }, root: [0, -0.14] },
+        { f: 6, r: { Spine: 18, RightUpLeg: 60, LeftLeg: -60 }, root: [0, -0.17] },
+        { f: 12, r: { Spine: 14, RightUpLeg: 55, LeftLeg: -55 }, root: [0, -0.14] },
+      ],
+      12,
       true,
     ),
     dash: mb.anim([{ f: 0, r: { Spine: -30, RightUpLeg: 60, RightLeg: -40, LeftUpLeg: -45, LeftLeg: -30, RightArm: -50, LeftArm: 40 }, root: [0, -0.1] }], 1),

@@ -205,6 +205,7 @@ function setAct(f: FighterState, act: Act): void {
   if (act !== Act.JumpSquat) f.shAerial = 0;
   if (act !== Act.Attack && act !== Act.Grabbing) f.move = -1;
   f.charge = 0;
+  f.stride = 0;
 }
 
 function inp(f: FighterState, frame: number): number {
@@ -447,6 +448,8 @@ function updateFighter(s: GameState, f: FighterState, fighting: boolean): void {
   // Attack progression (after action selection so new moves start on frame 1)
   if (f.act === Act.Attack) progressMove(s, f, cur);
 
+  // Gait clock: walk/run cycles advance by distance covered, so feet stay planted while accelerating/braking.
+  if (f.act === Act.Walk || f.act === Act.Run) f.stride += f.vx * f.facing;
   moveAndCollide(s, f);
 }
 

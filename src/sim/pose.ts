@@ -4,6 +4,8 @@ import type { Anim } from './anim';
 import type { FighterDef } from './defs';
 import { Act, FighterState } from './state';
 
+const abs = (v: number) => (v < 0 ? -v : v);
+
 export interface AnimRef {
   anim: Anim;
   frame: number;
@@ -28,10 +30,22 @@ export function fighterAnim(f: FighterState, d: FighterDef, out: AnimRef): AnimR
   let clip = 'idle';
   switch (f.act) {
     case Act.Idle:
+      if (f.grounded && abs(f.vx) > d.stats.walk) {
+        anim = a.skid;
+        clip = 'skid';
+      }
       break;
     case Act.Walk:
+      if (f.grounded && abs(f.vx) > d.stats.walk && (f.vx > 0 ? 1 : -1) !== f.facing) {
+        // Run turnaround / dash stop: still sliding the old way.
+        anim = a.skid;
+        clip = 'skid';
+        break;
+      }
       anim = a.walk;
       clip = 'walk';
+      // Distance-driven gait clock (negative = walking backwards plays the cycle in reverse).
+      frame = Math.trunc(f.stride / Math.max(1, d.stats.walk));
       break;
     case Act.Dash:
       anim = a.dash;
@@ -40,6 +54,7 @@ export function fighterAnim(f: FighterState, d: FighterDef, out: AnimRef): AnimR
     case Act.Run:
       anim = a.run;
       clip = 'run';
+      frame = Math.trunc(f.stride / Math.max(1, d.stats.run));
       break;
     case Act.Crouch:
       anim = a.crouch;

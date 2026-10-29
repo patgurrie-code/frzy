@@ -186,12 +186,25 @@ function think(s: GameState, port: number, level: number, mem: CpuMemory): numbe
   if (s.frame < mem.holdUntil) return mem.hold;
 
   // Defence: shield when an opponent is attacking up close
-  const threat = tgt.act === Act.Attack && adx < 2.4 * M && abs(dy) < 2 * M;
+  // Only guard what can still hit: hold until the move's last active frame (+ a small margin), not a fixed time,
+  // so CPUs stop sitting in shield until it breaks.
+  let activeLeft = -1;
+  if (tgt.act === Act.Attack && tgt.move >= 0) {
+    for (const hb of FIGHTERS[tgt.char].moves[tgt.move].hitboxes) activeLeft = Math.max(activeLeft, hb.end - tgt.actFrame);
+    if (FIGHTERS[tgt.char].moves[tgt.move].projectile) activeLeft = Math.max(activeLeft, 6);
+  }
+  const threat = activeLeft >= 0 && adx < 2.4 * M && abs(dy) < 2 * M;
   if (threat && me.grounded && rand(s, port, 5, 100) < 4 + level * 4) {
+    if (s.mode === Mode.Platform && me.shieldHp < 1800 && level >= 3) {
+      // Shield nearly broken: back off instead of guarding again.
+      mem.hold = dx > 0 ? IN_LEFT : IN_RIGHT;
+      mem.holdUntil = s.frame + 8;
+      return mem.hold;
+    }
     const low = tgt.grounded && (tgt.move === Mv.DTilt || tgt.move === Mv.DSmash || tgt.move === Mv.DashAttack);
     const guessRight = rand(s, port, 32, 100) < 40 + level * 7;
     mem.hold = IN_GUARD | (s.mode === Mode.Versus && low === guessRight ? IN_DOWN : 0);
-    mem.holdUntil = s.frame + 10 + rand(s, port, 6, 12);
+    mem.holdUntil = s.frame + Math.min(16, activeLeft + 3 + rand(s, port, 6, 4));
     return mem.hold;
   }
   // Out of shield: grab back or let go
